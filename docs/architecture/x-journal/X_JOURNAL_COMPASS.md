@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 9 — Provider Callback Integration  
+Current slice: Phase 10 — Reconciliation Integration  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -27,7 +27,7 @@ Last updated: 2026-06-29
 | 7 | Search and retrieval | Complete |
 | 8 | x-change execution integration | Complete |
 | 9 | Provider callback integration | Complete |
-| 10 | Reconciliation integration | Not started |
+| 10 | Reconciliation integration | Complete |
 | 11 | Operator action integration | Not started |
 | 12 | Campaign integration | Not started |
 | 13 | Cockpit integration | Not started |
@@ -129,6 +129,14 @@ Last updated: 2026-06-29
   - failed provider callback recording without settlement/reconciliation/next-action decisions
   - retrieval of provider callbacks by execution and provider references
   - tests proving supplied provider callback data is not mutated
+- Completed Phase 10 Reconciliation Integration:
+  - `ReconciliationEventData`
+  - `ReconciliationJournalRecorder`
+  - reconciliation comparison payload normalization
+  - expected/actual/comparison fact preservation
+  - discrepancy recording without correction, settlement, or next-action decisions
+  - retrieval of reconciliation entries by execution and provider references
+  - tests proving supplied reconciliation event data is not mutated
 
 ## Discoveries
 
@@ -156,6 +164,8 @@ Last updated: 2026-06-29
 - x-change execution integration can be introduced as an adapter seam before any x-change call sites are wired to it.
 - Provider callbacks can use the existing `provider.*` transformer baseline while adding a package-local DTO/recorder seam for host integrations.
 - Provider callback recording can preserve raw provider payloads without normalizing provider-specific status codes into lifecycle truth.
+- Reconciliation events can use the existing `reconciliation.*` transformer baseline while adding a package-local DTO/recorder seam for host integrations.
+- Expected, actual, and comparison payloads are enough for the baseline to preserve reconciliation evidence without resolving discrepancies.
 
 ## Risks
 
@@ -180,6 +190,8 @@ Last updated: 2026-06-29
 - The adapter records execution outcomes after execution; it must not be moved into a path that can alter execution semantics or money movement.
 - Duplicate provider callbacks are possible if a provider retries the same webhook; idempotency remains unresolved.
 - Provider callback status labels are currently recorded as supplied. Host packages must not treat x-journal callback records as settlement truth without domain reconciliation.
+- Reconciliation records can duplicate if host reconciliation jobs are retried; idempotency remains unresolved.
+- Reconciliation payloads may contain sensitive provider/bank file data; host APIs must pair retrieval with visibility/redaction policies before exposure.
 
 ## Architectural Decisions
 
@@ -220,6 +232,10 @@ Last updated: 2026-06-29
 - Raw provider callback payloads are preserved as evidence.
 - Provider callback records may include provider status labels, but x-journal does not interpret those labels as settlement success, failure, or reconciliation decisions.
 - `provider_reference`, `execution_id`, and subject references form the Phase 9 correlation bridge.
+- Reconciliation integration is an observational recording seam, not a settlement engine and not a discrepancy resolver.
+- Reconciliation records preserve expected facts, actual facts, and comparison facts.
+- Reconciliation records may indicate mismatch facts, but x-journal does not decide corrections, reversals, settlement state, or next actions.
+- `provider_reference`, `execution_id`, and subject references form the Phase 10 reconciliation correlation bridge.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -232,18 +248,19 @@ Last updated: 2026-06-29
 - Search and retrieval tests cover query normalization, reference lookup, actor/subject filters, correlation/causation/execution/event filters, deterministic windows, descending order, and non-mutating retrieval.
 - x-change execution integration tests cover outcome normalization, successful recording, failed recording without decisions, explicit reference precedence, retrieval by execution ID, and non-mutating recording.
 - Provider callback integration tests cover payload normalization, fact recording, raw failed callback preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
-- Full x-journal package suite is green: `73 passed, 276 assertions`.
+- Reconciliation integration tests cover comparison normalization, fact recording, discrepancy preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
+- Full x-journal package suite is green: `78 passed, 315 assertions`.
 
 ## Next Recommended Slice
 
-Phase 10 — Reconciliation Integration.
+Phase 11 — Operator Action Integration.
 
 Recommended next coverage:
 
-- Reconciliation payload normalization.
-- Reconciliation event recording through existing domain transformer baselines.
-- Tests proving reconciliation recording preserves expected/actual comparison facts without resolving discrepancies.
-- Correlation mapping from provider/execution references to reconciliation events.
+- Operator action payload normalization.
+- Operator action event recording as audit facts.
+- Tests proving operator action recording preserves actor/action/context without performing the action.
+- Correlation mapping from operator actions to execution, provider, reconciliation, claim, and subject references.
 
 ## Open Questions
 
