@@ -10,7 +10,10 @@ use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 use LBHurtado\XJournal\Services\JournalEventRecorder;
 use LBHurtado\XJournal\Services\JournalEventTransformerRegistry;
+use LBHurtado\XJournal\Transformers\ClaimLifecycleJournalTransformer;
 use LBHurtado\XJournal\Transformers\ExecutionResultJournalTransformer;
+use LBHurtado\XJournal\Transformers\ProviderCallbackJournalTransformer;
+use LBHurtado\XJournal\Transformers\ReconciliationJournalTransformer;
 
 class XJournalServiceProvider extends ServiceProvider
 {
@@ -27,7 +30,10 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(ExecutionJournalRecorder::class);
         $this->app->singleton(JournalEventTransformerRegistry::class, function (): JournalEventTransformerRegistry {
             return (new JournalEventTransformerRegistry)
-                ->register(new ExecutionResultJournalTransformer);
+                ->register(new ExecutionResultJournalTransformer)
+                ->register(new ClaimLifecycleJournalTransformer)
+                ->register(new ProviderCallbackJournalTransformer)
+                ->register(new ReconciliationJournalTransformer);
         });
         $this->app->singleton(JournalEventRecorder::class);
     }

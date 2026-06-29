@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 2 — Event Transformation Layer  
+Current slice: Phase 2B — Domain Event Transformer Baselines  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -19,7 +19,7 @@ Last updated: 2026-06-29
 |---|---|---|
 | 0 | Architectural foundation and package bootstrap | Complete |
 | 1 | Core journal foundation | Phase 1B complete |
-| 2 | Event transformation layer | Complete |
+| 2 | Event transformation layer | Phase 2B complete |
 | 3 | Sink architecture | Not started |
 | 4 | Visibility and authorization | Not started |
 | 5 | Artifact generation | Not started |
@@ -62,6 +62,11 @@ Last updated: 2026-06-29
   - `ExecutionResultJournalTransformer`
   - clear unsupported-event failure behavior
   - package-consumer transformer registration seam
+- Completed Phase 2B Domain Event Transformer Baselines:
+  - claim lifecycle transformer baseline
+  - provider callback transformer baseline
+  - reconciliation transformer baseline
+  - tests proving domain transformers normalize events without deciding outcomes
 
 ## Discoveries
 
@@ -73,6 +78,7 @@ Last updated: 2026-06-29
 - Scalar projections are now stored beside the canonical JSON payload for actor, subject, correlation, causation, and execution IDs.
 - Event transformers normalize raw event payloads into journal-entry data; they do not decide lifecycle outcomes.
 - The first built-in transformer supports `execution.*` event types only.
+- Built-in domain transformer baselines now support `claim.*`, `provider.*`, and `reconciliation.*` event types.
 
 ## Risks
 
@@ -82,6 +88,7 @@ Last updated: 2026-06-29
 - Current append-only enforcement is model-event based; direct database updates remain outside this slice.
 - Hash chaining is deterministic but not yet signed; signature strategy remains a later verification concern.
 - Phase 2 intentionally avoids dependencies on voucher or x-change classes; integration adapters remain future work.
+- Domain transformer baselines intentionally preserve raw domain payloads instead of interpreting success, failure, discrepancy resolution, or required next actions.
 
 ## Architectural Decisions
 
@@ -96,6 +103,7 @@ Last updated: 2026-06-29
 - Integrity hashing uses SHA-256 over a canonical execution-journal payload and includes `previous_hash`.
 - Event transformation is package-local and contract-driven.
 - Unsupported event types fail clearly with `JournalEventTransformerNotFoundException`.
+- Claim, provider, and reconciliation domain events are normalized through dedicated transformers.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -103,18 +111,18 @@ Last updated: 2026-06-29
 
 - Package bootstrap tests exist for configuration and service-provider registration.
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
-- Full x-journal package suite is green: `25 passed, 71 assertions`.
+- Full x-journal package suite is green: `31 passed, 98 assertions`.
 
 ## Next Recommended Slice
 
-Phase 2B — Domain Event Transformer Baselines.
+Phase 3 — Sink Architecture.
 
 Recommended next coverage:
 
-- Claim lifecycle transformer baseline.
-- Provider callback transformer baseline.
-- Reconciliation event transformer baseline.
-- Boundary tests proving domain transformers normalize events but do not make business decisions.
+- Explicit sink registry / multi-sink dispatcher.
+- Database sink as default canonical sink.
+- Optional secondary sink contract behavior.
+- Tests proving secondary sinks are projections/exports and not canonical truth.
 
 ## Open Questions
 
