@@ -8,6 +8,7 @@ use LBHurtado\XJournal\Services\DatabaseJournalSink;
 use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
+use LBHurtado\XJournal\Services\JournalSinkDispatcher;
 use LBHurtado\XJournal\Services\JournalEventRecorder;
 use LBHurtado\XJournal\Services\JournalEventTransformerRegistry;
 use LBHurtado\XJournal\Transformers\ClaimLifecycleJournalTransformer;
@@ -26,7 +27,9 @@ class XJournalServiceProvider extends ServiceProvider
 
         $this->app->singleton(ExecutionJournalIntegrityHasher::class);
         $this->app->singleton(ExecutionReferenceNumberGenerator::class);
-        $this->app->singleton(JournalSinkContract::class, DatabaseJournalSink::class);
+        $this->app->singleton(DatabaseJournalSink::class);
+        $this->app->singleton(JournalSinkDispatcher::class);
+        $this->app->singleton(JournalSinkContract::class, JournalSinkDispatcher::class);
         $this->app->singleton(ExecutionJournalRecorder::class);
         $this->app->singleton(JournalEventTransformerRegistry::class, function (): JournalEventTransformerRegistry {
             return (new JournalEventTransformerRegistry)

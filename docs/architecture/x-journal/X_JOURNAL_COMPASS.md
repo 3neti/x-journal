@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 2B — Domain Event Transformer Baselines  
+Current slice: Phase 3 — Sink Architecture  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -20,7 +20,7 @@ Last updated: 2026-06-29
 | 0 | Architectural foundation and package bootstrap | Complete |
 | 1 | Core journal foundation | Phase 1B complete |
 | 2 | Event transformation layer | Phase 2B complete |
-| 3 | Sink architecture | Not started |
+| 3 | Sink architecture | Complete |
 | 4 | Visibility and authorization | Not started |
 | 5 | Artifact generation | Not started |
 | 6 | Verification and integrity | Not started |
@@ -67,6 +67,12 @@ Last updated: 2026-06-29
   - provider callback transformer baseline
   - reconciliation transformer baseline
   - tests proving domain transformers normalize events without deciding outcomes
+- Completed Phase 3 Sink Architecture:
+  - `SecondaryJournalSinkContract`
+  - `JournalSinkDispatcher`
+  - database sink retained as canonical default
+  - secondary sink fan-out for projections/exports
+  - tests proving secondary sinks do not become canonical journal truth
 
 ## Discoveries
 
@@ -79,6 +85,7 @@ Last updated: 2026-06-29
 - Event transformers normalize raw event payloads into journal-entry data; they do not decide lifecycle outcomes.
 - The first built-in transformer supports `execution.*` event types only.
 - Built-in domain transformer baselines now support `claim.*`, `provider.*`, and `reconciliation.*` event types.
+- Sink architecture now separates canonical persistence from secondary projection/export sinks.
 
 ## Risks
 
@@ -89,6 +96,7 @@ Last updated: 2026-06-29
 - Hash chaining is deterministic but not yet signed; signature strategy remains a later verification concern.
 - Phase 2 intentionally avoids dependencies on voucher or x-change classes; integration adapters remain future work.
 - Domain transformer baselines intentionally preserve raw domain payloads instead of interpreting success, failure, discrepancy resolution, or required next actions.
+- Secondary sinks currently execute synchronously after canonical database persistence.
 
 ## Architectural Decisions
 
@@ -104,6 +112,9 @@ Last updated: 2026-06-29
 - Event transformation is package-local and contract-driven.
 - Unsupported event types fail clearly with `JournalEventTransformerNotFoundException`.
 - Claim, provider, and reconciliation domain events are normalized through dedicated transformers.
+- `JournalSinkContract` resolves to `JournalSinkDispatcher`.
+- `DatabaseJournalSink` remains the canonical durable sink.
+- `SecondaryJournalSinkContract` is for projections/exports only.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -111,21 +122,22 @@ Last updated: 2026-06-29
 
 - Package bootstrap tests exist for configuration and service-provider registration.
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
-- Full x-journal package suite is green: `31 passed, 98 assertions`.
+- Full x-journal package suite is green: `36 passed, 113 assertions`.
 
 ## Next Recommended Slice
 
-Phase 3 — Sink Architecture.
+Phase 4 — Visibility and Authorization.
 
 Recommended next coverage:
 
-- Explicit sink registry / multi-sink dispatcher.
-- Database sink as default canonical sink.
-- Optional secondary sink contract behavior.
-- Tests proving secondary sinks are projections/exports and not canonical truth.
+- Journal visibility policy contracts.
+- Actor/subject visibility checks.
+- Access decision DTOs.
+- Tests proving visibility does not alter journal truth.
 
 ## Open Questions
 
 - Which host package should first consume x-journal: x-change adapters, voucher events, or a dedicated integration layer?
 - What signature strategy should be used for future tamper-evident verification artifacts?
 - Should default transformers be configured declaratively through config or only registered programmatically?
+- Should secondary sinks remain synchronous or move to queued dispatch before production use?
