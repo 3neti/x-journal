@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 8 — x-change Execution Integration  
+Current slice: Phase 9 — Provider Callback Integration  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -26,7 +26,7 @@ Last updated: 2026-06-29
 | 6 | Verification and integrity | Complete |
 | 7 | Search and retrieval | Complete |
 | 8 | x-change execution integration | Complete |
-| 9 | Provider callback integration | Not started |
+| 9 | Provider callback integration | Complete |
 | 10 | Reconciliation integration | Not started |
 | 11 | Operator action integration | Not started |
 | 12 | Campaign integration | Not started |
@@ -120,6 +120,15 @@ Last updated: 2026-06-29
   - retrieval of recorded execution outcomes by execution ID
   - tests proving supplied execution outcome data is not mutated
   - no x-change or voucher call sites changed in this slice
+- Completed Phase 9 Provider Callback Integration:
+  - `ProviderCallbackData`
+  - `ProviderCallbackJournalRecorder`
+  - provider callback payload normalization
+  - provider reference and execution reference preservation
+  - raw provider callback payload preservation
+  - failed provider callback recording without settlement/reconciliation/next-action decisions
+  - retrieval of provider callbacks by execution and provider references
+  - tests proving supplied provider callback data is not mutated
 
 ## Discoveries
 
@@ -145,6 +154,8 @@ Last updated: 2026-06-29
 - Voucher execution results currently expose `execution_id`, `successful`, `status`, `driver`, `events`, `failure`, provider references, reconciliation, children, and metadata.
 - x-journal can accept execution outcome payloads as plain arrays, avoiding a hard Composer/runtime dependency on `3neti/voucher`.
 - x-change execution integration can be introduced as an adapter seam before any x-change call sites are wired to it.
+- Provider callbacks can use the existing `provider.*` transformer baseline while adding a package-local DTO/recorder seam for host integrations.
+- Provider callback recording can preserve raw provider payloads without normalizing provider-specific status codes into lifecycle truth.
 
 ## Risks
 
@@ -167,6 +178,8 @@ Last updated: 2026-06-29
 - Phase 8 does not yet wire live x-change execution call sites; a later slice must characterize and test those call sites before integration.
 - Duplicate journal entries are possible if a host calls the execution integration adapter repeatedly for the same execution result; idempotency remains unresolved.
 - The adapter records execution outcomes after execution; it must not be moved into a path that can alter execution semantics or money movement.
+- Duplicate provider callbacks are possible if a provider retries the same webhook; idempotency remains unresolved.
+- Provider callback status labels are currently recorded as supplied. Host packages must not treat x-journal callback records as settlement truth without domain reconciliation.
 
 ## Architectural Decisions
 
@@ -203,6 +216,10 @@ Last updated: 2026-06-29
 - `execution_id` is the primary correlation bridge from voucher execution into x-journal references.
 - Failed execution outcomes are recorded as facts; x-journal does not decide retry, recovery, reversal, or next action.
 - Live x-change/voucher call-site wiring is deferred until characterization tests exist around those call sites.
+- Provider callback integration is an observational recording seam, not a provider adapter and not a reconciliation engine.
+- Raw provider callback payloads are preserved as evidence.
+- Provider callback records may include provider status labels, but x-journal does not interpret those labels as settlement success, failure, or reconciliation decisions.
+- `provider_reference`, `execution_id`, and subject references form the Phase 9 correlation bridge.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -214,18 +231,19 @@ Last updated: 2026-06-29
 - Verification and integrity tests cover clean chains, payload tampering, broken previous-hash continuity, missing hashes, non-mutating verification, and unsigned baseline behavior.
 - Search and retrieval tests cover query normalization, reference lookup, actor/subject filters, correlation/causation/execution/event filters, deterministic windows, descending order, and non-mutating retrieval.
 - x-change execution integration tests cover outcome normalization, successful recording, failed recording without decisions, explicit reference precedence, retrieval by execution ID, and non-mutating recording.
-- Full x-journal package suite is green: `68 passed, 232 assertions`.
+- Provider callback integration tests cover payload normalization, fact recording, raw failed callback preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
+- Full x-journal package suite is green: `73 passed, 276 assertions`.
 
 ## Next Recommended Slice
 
-Phase 9 — Provider Callback Integration.
+Phase 10 — Reconciliation Integration.
 
 Recommended next coverage:
 
-- Provider callback payload normalization.
-- Provider callback recording through existing domain transformer baselines.
-- Tests proving callback recording preserves raw provider state without interpreting success, failure, settlement, or reconciliation.
-- Correlation mapping from provider references to execution and subject references.
+- Reconciliation payload normalization.
+- Reconciliation event recording through existing domain transformer baselines.
+- Tests proving reconciliation recording preserves expected/actual comparison facts without resolving discrepancies.
+- Correlation mapping from provider/execution references to reconciliation events.
 
 ## Open Questions
 
@@ -242,3 +260,5 @@ Recommended next coverage:
 - Should retrieval queries support date windows in Phase 8+ or wait for Cockpit/search hardening?
 - What idempotency key should be used when host applications record execution outcomes: execution ID, ERN, provider reference, or a composite?
 - Which x-change execution call site should be wired first once characterization tests are in place?
+- What idempotency key should be used for provider callback retries: provider reference, callback ID, provider timestamp, signature, or a composite?
+- Which provider callback source should be wired first once host package characterization tests exist?

@@ -15,6 +15,7 @@ use LBHurtado\XJournal\Services\JournalEventTransformerRegistry;
 use LBHurtado\XJournal\Services\JournalIntegrityVerifier;
 use LBHurtado\XJournal\Services\JournalSinkDispatcher;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
+use LBHurtado\XJournal\Services\ProviderCallbackJournalRecorder;
 use LBHurtado\XJournal\Services\XChangeExecutionJournalRecorder;
 use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
@@ -42,6 +43,7 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(JournalSinkContract::class, JournalSinkDispatcher::class);
         $this->app->singleton(ExecutionJournalRecorder::class);
         $this->app->singleton(XChangeExecutionJournalRecorder::class);
+        $this->app->singleton(ProviderCallbackJournalRecorder::class);
         $this->app->singleton(JournalVisibilityGate::class, function (): JournalVisibilityGate {
             return (new JournalVisibilityGate)
                 ->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);
