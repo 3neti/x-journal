@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 13 — Cockpit Integration  
+Current slice: Phase 14 — Hardening  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -31,7 +31,7 @@ Last updated: 2026-06-29
 | 11 | Operator action integration | Complete |
 | 12 | Campaign integration | Complete |
 | 13 | Cockpit integration | Complete |
-| 14 | Hardening | Not started |
+| 14 | Hardening | Complete |
 | 15 | Production readiness | Not started |
 
 ## Completed Work
@@ -165,6 +165,14 @@ Last updated: 2026-06-29
   - Cockpit read-model projection over canonical journal entries
   - retrieval composed with `JournalVisibilityGate`
   - tests proving Cockpit reads expose journal facts without bypassing visibility, executing operator actions, or mutating journal entries
+- Completed Phase 14 Hardening:
+  - architecture hardening test suite
+  - runtime Composer dependency boundary coverage for settlement domain packages
+  - singleton infrastructure binding coverage for core read/write services
+  - append-only model guard invariant coverage
+  - explicit built-in transformer coverage for supported domains
+  - fail-closed unsupported event coverage before persistence side effects
+  - Cockpit post-retrieval visibility-window characterization
 
 ## Discoveries
 
@@ -200,6 +208,9 @@ Last updated: 2026-06-29
 - Campaign event recording can preserve planning, beneficiary-list, distribution, and batch evidence without depending on x-campaign classes or causing voucher issuance.
 - Cockpit integration can be implemented as a read-side seam over existing retrieval and visibility services without adding UI, controllers, routes, or domain behavior.
 - Cockpit read models benefit from preserving visibility reasons so operator-facing screens can explain why an entry is visible.
+- Phase 14 confirmed x-journal currently avoids runtime Composer dependencies on voucher, x-change, x-action, x-feedback, x-campaign, settlement-envelope, wallet, and cash.
+- Phase 14 confirmed the execution transformer remains the only built-in transformer without a `domain` metadata key; it still records its transformer class. This is existing behavior and was characterized, not changed.
+- Unsupported events fail before journal persistence through `JournalEventRecorder`, preserving fail-closed behavior for unrecognized domains.
 
 ## Risks
 
@@ -235,6 +246,9 @@ Last updated: 2026-06-29
 - Cockpit read models expose canonical journal payloads and may surface sensitive data; host Cockpit APIs must add redaction/presentation rules before broad operator exposure.
 - Phase 13 visibility filtering happens after the retrieval window. A page can contain fewer visible entries than the underlying query window; production Cockpit pagination may need visibility-aware cursor/windowing.
 - Cockpit read models are read-side projections only. Host Cockpit code must not treat them as command execution, action authorization, or lifecycle truth beyond the underlying journal facts.
+- Direct database writes can still bypass model-level append-only guards; database-level immutability remains outside this package baseline.
+- Idempotency remains unresolved across execution outcomes, provider callbacks, reconciliation records, operator actions, and campaign records.
+- Execution transformer metadata shape differs from later domain transformers because it lacks a `domain` key; consumers should not assume every transformed entry has `metadata.domain`.
 
 ## Architectural Decisions
 
@@ -289,6 +303,10 @@ Last updated: 2026-06-29
 - Cockpit integration is a read-side projection seam, not an operator shell implementation, action executor, authorization bypass, or domain workflow layer.
 - `CockpitJournalReader` composes `JournalEntryRetriever` with `JournalVisibilityGate`.
 - Cockpit read models preserve canonical journal actor, subject, reference, payload, metadata, and visibility-reason facts.
+- Phase 14 hardening is test-only and does not change runtime journal behavior.
+- x-journal must not add runtime dependencies on settlement domain packages without an explicit boundary decision.
+- Unsupported event types must fail closed before persistence.
+- Model-level append-only guards remain an architecture invariant, with database-level enforcement deferred.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -305,18 +323,21 @@ Last updated: 2026-06-29
 - Operator action integration tests cover payload normalization, audit fact recording, denied/blocked action preservation without workflow mutation, retrieval by execution/causation references, and non-mutating recording.
 - Campaign integration tests cover payload normalization, audit fact recording, batch fact preservation without issuance/execution/distribution decisions, retrieval by execution/program references, and non-mutating recording.
 - Cockpit integration tests cover query normalization, read-model projection, visibility-gated retrieval, subject-visible reads, non-execution of operator actions, and non-mutating reads.
-- Full x-journal package suite is green: `93 passed, 441 assertions`.
+- Architecture hardening tests cover runtime package independence, singleton infrastructure bindings, append-only invariants, supported transformer domains, unsupported-event fail-closed behavior, no persistence side effects for unsupported events, and Cockpit post-retrieval visibility windowing.
+- Full x-journal package suite is green: `99 passed, 466 assertions`.
 
 ## Next Recommended Slice
 
-Phase 14 — Hardening.
+Phase 15 — Production Readiness.
 
 Recommended next coverage:
 
-- Architecture invariant tests for append-only behavior, unsupported event failure, visibility composition, and no cross-package runtime dependencies.
-- Idempotency strategy documentation or explicit deferral for execution outcomes, provider callbacks, reconciliation records, operator actions, and campaign records.
-- Visibility-aware retrieval/pagination risk characterization.
-- Redaction/presentation boundary characterization for Cockpit-facing read models.
+- Production readiness checklist and release notes.
+- Explicit idempotency ADR or deferral record.
+- Database-level immutability strategy decision.
+- Signature/key-management strategy decision for externally verifiable artifacts.
+- Redaction/presentation strategy decision for Cockpit-facing read models.
+- Visibility-aware pagination strategy decision.
 
 ## Open Questions
 
