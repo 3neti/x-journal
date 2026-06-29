@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 3 — Sink Architecture  
+Current slice: Phase 4 — Visibility and Authorization  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -21,7 +21,7 @@ Last updated: 2026-06-29
 | 1 | Core journal foundation | Phase 1B complete |
 | 2 | Event transformation layer | Phase 2B complete |
 | 3 | Sink architecture | Complete |
-| 4 | Visibility and authorization | Not started |
+| 4 | Visibility and authorization | Complete |
 | 5 | Artifact generation | Not started |
 | 6 | Verification and integrity | Not started |
 | 7 | Search and retrieval | Not started |
@@ -73,6 +73,14 @@ Last updated: 2026-06-29
   - database sink retained as canonical default
   - secondary sink fan-out for projections/exports
   - tests proving secondary sinks do not become canonical journal truth
+- Completed Phase 4 Visibility and Authorization:
+  - `JournalAccessActorData`
+  - `JournalAccessDecisionData`
+  - `JournalVisibilityPolicyContract`
+  - `JournalVisibilityGate`
+  - default actor-or-subject visibility policy
+  - explicit `x-journal.view` permission support
+  - package-consumer visibility policy seam
 
 ## Discoveries
 
@@ -86,6 +94,7 @@ Last updated: 2026-06-29
 - The first built-in transformer supports `execution.*` event types only.
 - Built-in domain transformer baselines now support `claim.*`, `provider.*`, and `reconciliation.*` event types.
 - Sink architecture now separates canonical persistence from secondary projection/export sinks.
+- Visibility checks are read-side access decisions and do not mutate journal entries.
 
 ## Risks
 
@@ -97,6 +106,7 @@ Last updated: 2026-06-29
 - Phase 2 intentionally avoids dependencies on voucher or x-change classes; integration adapters remain future work.
 - Domain transformer baselines intentionally preserve raw domain payloads instead of interpreting success, failure, discrepancy resolution, or required next actions.
 - Secondary sinks currently execute synchronously after canonical database persistence.
+- Default visibility allows matching journal actor, matching journal subject, or explicit `x-journal.view` permission.
 
 ## Architectural Decisions
 
@@ -115,6 +125,7 @@ Last updated: 2026-06-29
 - `JournalSinkContract` resolves to `JournalSinkDispatcher`.
 - `DatabaseJournalSink` remains the canonical durable sink.
 - `SecondaryJournalSinkContract` is for projections/exports only.
+- `JournalVisibilityGate` controls read visibility and does not alter journal truth.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -122,18 +133,18 @@ Last updated: 2026-06-29
 
 - Package bootstrap tests exist for configuration and service-provider registration.
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
-- Full x-journal package suite is green: `36 passed, 113 assertions`.
+- Full x-journal package suite is green: `43 passed, 126 assertions`.
 
 ## Next Recommended Slice
 
-Phase 4 — Visibility and Authorization.
+Phase 5 — Artifact Generation.
 
 Recommended next coverage:
 
-- Journal visibility policy contracts.
-- Actor/subject visibility checks.
-- Access decision DTOs.
-- Tests proving visibility does not alter journal truth.
+- Artifact generation contracts.
+- Statement/receipt rendering baseline.
+- Artifact profile DTOs.
+- Tests proving artifacts are renderings of journal truth, not journal truth itself.
 
 ## Open Questions
 
@@ -141,3 +152,4 @@ Recommended next coverage:
 - What signature strategy should be used for future tamper-evident verification artifacts?
 - Should default transformers be configured declaratively through config or only registered programmatically?
 - Should secondary sinks remain synchronous or move to queued dispatch before production use?
+- Should visibility policies be configured declaratively through config or composed programmatically by host packages?

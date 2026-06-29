@@ -8,9 +8,11 @@ use LBHurtado\XJournal\Services\DatabaseJournalSink;
 use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
-use LBHurtado\XJournal\Services\JournalSinkDispatcher;
 use LBHurtado\XJournal\Services\JournalEventRecorder;
 use LBHurtado\XJournal\Services\JournalEventTransformerRegistry;
+use LBHurtado\XJournal\Services\JournalSinkDispatcher;
+use LBHurtado\XJournal\Services\JournalVisibilityGate;
+use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 use LBHurtado\XJournal\Transformers\ClaimLifecycleJournalTransformer;
 use LBHurtado\XJournal\Transformers\ExecutionResultJournalTransformer;
 use LBHurtado\XJournal\Transformers\ProviderCallbackJournalTransformer;
@@ -31,6 +33,10 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(JournalSinkDispatcher::class);
         $this->app->singleton(JournalSinkContract::class, JournalSinkDispatcher::class);
         $this->app->singleton(ExecutionJournalRecorder::class);
+        $this->app->singleton(JournalVisibilityGate::class, function (): JournalVisibilityGate {
+            return (new JournalVisibilityGate)
+                ->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);
+        });
         $this->app->singleton(JournalEventTransformerRegistry::class, function (): JournalEventTransformerRegistry {
             return (new JournalEventTransformerRegistry)
                 ->register(new ExecutionResultJournalTransformer)
