@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 1A — Core Journal Foundation tests  
+Current slice: Phase 1B — Core Journal Foundation hardening  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -18,7 +18,7 @@ Last updated: 2026-06-29
 | Phase | Focus | Status |
 |---|---|---|
 | 0 | Architectural foundation and package bootstrap | Complete |
-| 1 | Core journal foundation | Phase 1A complete |
+| 1 | Core journal foundation | Phase 1B complete |
 | 2 | Event transformation layer | Not started |
 | 3 | Sink architecture | Not started |
 | 4 | Visibility and authorization | Not started |
@@ -48,6 +48,12 @@ Last updated: 2026-06-29
 - Added `ExecutionJournalEntry` and `execution_journal_entries` as the initial durable journal store.
 - Added `ExecutionReferenceNumberGenerator`, `ExecutionJournalRecorder`, and `DatabaseJournalSink`.
 - Added append-only model guards for update/delete attempts.
+- Completed Phase 1B hardening:
+  - counter-backed ERN sequencing by prefix/year
+  - scalar projection columns for common journal queries
+  - deterministic integrity hash calculation
+  - previous-hash chaining between persisted journal entries
+  - package-consumer sink replacement seam via `JournalSinkContract`
 
 ## Discoveries
 
@@ -56,13 +62,15 @@ Last updated: 2026-06-29
 - The functional specifications and 01–05 planning files are coherent enough to guide Phase 0 and Phase 1.
 - Phase 1A uses `spatie/laravel-data` DTOs, matching the planning docs and local package conventions.
 - The initial journal schema stores canonical actor, subject, money, references, payload, integrity, and metadata as JSON.
+- Scalar projections are now stored beside the canonical JSON payload for actor, subject, correlation, causation, and execution IDs.
 
 ## Risks
 
 - The empty primary instruction file can confuse future agents unless the addendum remains treated as authoritative.
-- ERN generation is currently database-backed and sequential by year; production concurrency hardening remains a future concern.
+- ERN generation now uses a dedicated counter table with row locking.
 - x-journal must remain independent of voucher execution internals and x-change product workflow decisions.
 - Current append-only enforcement is model-event based; direct database updates remain outside this slice.
+- Hash chaining is deterministic but not yet signed; signature strategy remains a later verification concern.
 
 ## Architectural Decisions
 
@@ -72,6 +80,9 @@ Last updated: 2026-06-29
 - Every future journal entry must have an evidence/reference number.
 - Initial ERN format is `ERN-YYYY-#########`.
 - Initial DTO strategy is `spatie/laravel-data` with explicit canonical array normalization for journal payloads.
+- ERN sequencing uses `execution_journal_reference_counters` keyed by prefix and year.
+- x-journal stores scalar projection columns for common query dimensions while retaining canonical JSON payloads.
+- Integrity hashing uses SHA-256 over a canonical execution-journal payload and includes `previous_hash`.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -79,21 +90,20 @@ Last updated: 2026-06-29
 
 - Package bootstrap tests exist for configuration and service-provider registration.
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
-- Full x-journal package suite is green: `13 passed, 25 assertions`.
+- Full x-journal package suite is green: `19 passed, 49 assertions`.
 
 ## Next Recommended Slice
 
-Phase 1B — Core Journal Foundation hardening.
+Phase 2 — Event Transformation Layer.
 
 Recommended next coverage:
 
-- Reference number concurrency/race protection.
-- Hash/integrity calculation strategy.
-- Indexed scalar projection strategy for common journal queries.
-- Recorder contract extension seams for future non-database sinks.
+- Execution/result event transformer contracts.
+- Event-to-journal DTO normalization.
+- Claim lifecycle and provider callback transformer baselines.
+- Boundary tests proving transformers normalize events but do not make business decisions.
 
 ## Open Questions
 
-- Should `execution_journal_entries` use JSON columns only, or include indexed scalar projection columns for common queries from day one?
 - Which host package should first consume x-journal: x-change adapters, voucher events, or a dedicated integration layer?
-- Should ERN sequencing use a dedicated counter table before production integration?
+- What signature strategy should be used for future tamper-evident verification artifacts?

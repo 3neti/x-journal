@@ -4,7 +4,8 @@ namespace LBHurtado\XJournal\Services;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
-use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use Illuminate\Support\Facades\DB;
+use LBHurtado\XJournal\Models\ExecutionJournalReferenceCounter;
 
 class ExecutionReferenceNumberGenerator
 {
@@ -15,19 +16,28 @@ class ExecutionReferenceNumberGenerator
         $prefix = (string) config('x-journal.reference_number.prefix', 'ERN');
         $digits = (int) config('x-journal.reference_number.digits', 9);
         $year = $occurredAt->format('Y');
-        $needle = "{$prefix}-{$year}-";
+        return DB::transaction(function () use ($prefix, $year, $digits): string {
+            $counter = ExecutionJournalReferenceCounter::query()
+                ->where('prefix', $prefix)
+                ->where('year', $year)
+                ->lockForUpdate()
+                ->first();
 
-        $latest = ExecutionJournalEntry::query()
-            ->where('reference_number', 'like', "{$needle}%")
-            ->orderByDesc('reference_number')
-            ->value('reference_number');
+            if (! $counter instanceof ExecutionJournalReferenceCounter) {
+                $counter = ExecutionJournalReferenceCounter::query()->create([
+                    'prefix' => $prefix,
+                    'year' => $year,
+                    'next_sequence' => 1,
+                ]);
+            }
 
-        $next = 1;
+            $sequence = $counter->next_sequence;
 
-        if (is_string($latest)) {
-            $next = ((int) substr($latest, -$digits)) + 1;
-        }
+            $counter->forceFill([
+                'next_sequence' => $sequence + 1,
+            ])->save();
 
-        return $needle.str_pad((string) $next, $digits, '0', STR_PAD_LEFT);
+            return "{$prefix}-{$year}-".str_pad((string) $sequence, $digits, '0', STR_PAD_LEFT);
+        });
     }
 }

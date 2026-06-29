@@ -5,6 +5,7 @@ namespace LBHurtado\XJournal;
 use Illuminate\Support\ServiceProvider;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Services\DatabaseJournalSink;
+use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 
@@ -17,6 +18,7 @@ class XJournalServiceProvider extends ServiceProvider
             'x-journal'
         );
 
+        $this->app->singleton(ExecutionJournalIntegrityHasher::class);
         $this->app->singleton(ExecutionReferenceNumberGenerator::class);
         $this->app->singleton(JournalSinkContract::class, DatabaseJournalSink::class);
         $this->app->singleton(ExecutionJournalRecorder::class);
