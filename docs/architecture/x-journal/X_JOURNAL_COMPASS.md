@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 7 — Search and Retrieval  
+Current slice: Phase 8 — x-change Execution Integration  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -25,7 +25,7 @@ Last updated: 2026-06-29
 | 5 | Artifact generation | Complete |
 | 6 | Verification and integrity | Complete |
 | 7 | Search and retrieval | Complete |
-| 8 | x-change execution integration | Not started |
+| 8 | x-change execution integration | Complete |
 | 9 | Provider callback integration | Not started |
 | 10 | Reconciliation integration | Not started |
 | 11 | Operator action integration | Not started |
@@ -110,6 +110,16 @@ Last updated: 2026-06-29
   - bounded limit/offset windowing
   - deterministic ascending/descending ordering
   - tests proving retrieval does not mutate journal entries
+- Completed Phase 8 x-change Execution Integration:
+  - `XChangeExecutionOutcomeData`
+  - `XChangeExecutionJournalRecorder`
+  - execution outcome normalization from plain arrays
+  - voucher `execution_id` mapping into journal references
+  - successful execution outcome recording
+  - failed execution outcome recording without recovery decisions
+  - retrieval of recorded execution outcomes by execution ID
+  - tests proving supplied execution outcome data is not mutated
+  - no x-change or voucher call sites changed in this slice
 
 ## Discoveries
 
@@ -132,6 +142,9 @@ Last updated: 2026-06-29
 - Search and retrieval can use existing scalar projection columns introduced in Phase 1B without schema changes.
 - Retrieval is intentionally separate from visibility decisions; consuming layers must pair retrieval with `JournalVisibilityGate` when exposing entries.
 - Bounded limit/offset windows are enough for the package baseline; cursor pagination can be introduced later if operator views need it.
+- Voucher execution results currently expose `execution_id`, `successful`, `status`, `driver`, `events`, `failure`, provider references, reconciliation, children, and metadata.
+- x-journal can accept execution outcome payloads as plain arrays, avoiding a hard Composer/runtime dependency on `3neti/voucher`.
+- x-change execution integration can be introduced as an adapter seam before any x-change call sites are wired to it.
 
 ## Risks
 
@@ -151,6 +164,9 @@ Last updated: 2026-06-29
 - Signature policy remains deferred and should be designed before treating generated artifacts as externally verifiable legal/evidentiary bundles.
 - Retrieval services can expose sensitive journal entries if host packages do not compose them with visibility policies before API/UI exposure.
 - Offset-based pagination is simple and deterministic for the baseline, but may need cursor pagination for large production journals.
+- Phase 8 does not yet wire live x-change execution call sites; a later slice must characterize and test those call sites before integration.
+- Duplicate journal entries are possible if a host calls the execution integration adapter repeatedly for the same execution result; idempotency remains unresolved.
+- The adapter records execution outcomes after execution; it must not be moved into a path that can alter execution semantics or money movement.
 
 ## Architectural Decisions
 
@@ -182,6 +198,11 @@ Last updated: 2026-06-29
 - Phase 7 retrieval filters operate on indexed scalar projections where available.
 - Query windows are bounded to a maximum limit of 200 entries in the baseline DTO.
 - Visibility remains a separate layer composed by consumers or future integration services.
+- x-change execution integration is an observational recording seam, not an execution dependency.
+- x-journal does not depend on voucher classes; execution outcome data is accepted through package-local DTO normalization.
+- `execution_id` is the primary correlation bridge from voucher execution into x-journal references.
+- Failed execution outcomes are recorded as facts; x-journal does not decide retry, recovery, reversal, or next action.
+- Live x-change/voucher call-site wiring is deferred until characterization tests exist around those call sites.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -192,18 +213,19 @@ Last updated: 2026-06-29
 - Artifact generation tests cover profile normalization, receipt rendering, statement rendering, non-mutating artifact generation, unsupported renderer failure, and package-consumer renderer registration.
 - Verification and integrity tests cover clean chains, payload tampering, broken previous-hash continuity, missing hashes, non-mutating verification, and unsigned baseline behavior.
 - Search and retrieval tests cover query normalization, reference lookup, actor/subject filters, correlation/causation/execution/event filters, deterministic windows, descending order, and non-mutating retrieval.
-- Full x-journal package suite is green: `62 passed, 189 assertions`.
+- x-change execution integration tests cover outcome normalization, successful recording, failed recording without decisions, explicit reference precedence, retrieval by execution ID, and non-mutating recording.
+- Full x-journal package suite is green: `68 passed, 232 assertions`.
 
 ## Next Recommended Slice
 
-Phase 8 — x-change Execution Integration.
+Phase 9 — Provider Callback Integration.
 
 Recommended next coverage:
 
-- Integration adapter tests for recording x-change/voucher execution outcomes through x-journal without making execution depend on journal storage.
-- Correlation mapping from voucher `execution_id` into x-journal references.
-- Tests proving execution integration records facts without changing execution behavior.
-- Package-boundary review before modifying x-change or voucher call sites.
+- Provider callback payload normalization.
+- Provider callback recording through existing domain transformer baselines.
+- Tests proving callback recording preserves raw provider state without interpreting success, failure, settlement, or reconciliation.
+- Correlation mapping from provider references to execution and subject references.
 
 ## Open Questions
 
@@ -218,3 +240,5 @@ Recommended next coverage:
 - What signature algorithm and key-management strategy should be used for externally verifiable artifacts?
 - Should production retrieval use cursor pagination before Cockpit/operator screens consume large journals?
 - Should retrieval queries support date windows in Phase 8+ or wait for Cockpit/search hardening?
+- What idempotency key should be used when host applications record execution outcomes: execution ID, ERN, provider reference, or a composite?
+- Which x-change execution call site should be wired first once characterization tests are in place?
