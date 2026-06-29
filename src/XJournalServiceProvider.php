@@ -15,6 +15,7 @@ use LBHurtado\XJournal\Services\JournalEventTransformerRegistry;
 use LBHurtado\XJournal\Services\JournalIntegrityVerifier;
 use LBHurtado\XJournal\Services\JournalSinkDispatcher;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
+use LBHurtado\XJournal\Services\OperatorActionJournalRecorder;
 use LBHurtado\XJournal\Services\ProviderCallbackJournalRecorder;
 use LBHurtado\XJournal\Services\ReconciliationJournalRecorder;
 use LBHurtado\XJournal\Services\XChangeExecutionJournalRecorder;
@@ -23,6 +24,7 @@ use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
 use LBHurtado\XJournal\Renderers\TextStatementArtifactRenderer;
 use LBHurtado\XJournal\Transformers\ClaimLifecycleJournalTransformer;
 use LBHurtado\XJournal\Transformers\ExecutionResultJournalTransformer;
+use LBHurtado\XJournal\Transformers\OperatorActionJournalTransformer;
 use LBHurtado\XJournal\Transformers\ProviderCallbackJournalTransformer;
 use LBHurtado\XJournal\Transformers\ReconciliationJournalTransformer;
 
@@ -46,6 +48,7 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(XChangeExecutionJournalRecorder::class);
         $this->app->singleton(ProviderCallbackJournalRecorder::class);
         $this->app->singleton(ReconciliationJournalRecorder::class);
+        $this->app->singleton(OperatorActionJournalRecorder::class);
         $this->app->singleton(JournalVisibilityGate::class, function (): JournalVisibilityGate {
             return (new JournalVisibilityGate)
                 ->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);
@@ -60,7 +63,8 @@ class XJournalServiceProvider extends ServiceProvider
                 ->register(new ExecutionResultJournalTransformer)
                 ->register(new ClaimLifecycleJournalTransformer)
                 ->register(new ProviderCallbackJournalTransformer)
-                ->register(new ReconciliationJournalTransformer);
+                ->register(new ReconciliationJournalTransformer)
+                ->register(new OperatorActionJournalTransformer);
         });
         $this->app->singleton(JournalEventRecorder::class);
     }

@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 10 — Reconciliation Integration  
+Current slice: Phase 11 — Operator Action Integration  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -28,7 +28,7 @@ Last updated: 2026-06-29
 | 8 | x-change execution integration | Complete |
 | 9 | Provider callback integration | Complete |
 | 10 | Reconciliation integration | Complete |
-| 11 | Operator action integration | Not started |
+| 11 | Operator action integration | Complete |
 | 12 | Campaign integration | Not started |
 | 13 | Cockpit integration | Not started |
 | 14 | Hardening | Not started |
@@ -137,6 +137,15 @@ Last updated: 2026-06-29
   - discrepancy recording without correction, settlement, or next-action decisions
   - retrieval of reconciliation entries by execution and provider references
   - tests proving supplied reconciliation event data is not mutated
+- Completed Phase 11 Operator Action Integration:
+  - `OperatorActionData`
+  - `OperatorActionJournalRecorder`
+  - `OperatorActionJournalTransformer`
+  - operator action payload normalization
+  - actor, action, context, and target reference preservation
+  - blocked/denied operator action recording without workflow mutation, execution, money movement, or CTA completion
+  - retrieval of operator action entries by execution and causation references
+  - tests proving supplied operator action data is not mutated
 
 ## Discoveries
 
@@ -166,6 +175,8 @@ Last updated: 2026-06-29
 - Provider callback recording can preserve raw provider payloads without normalizing provider-specific status codes into lifecycle truth.
 - Reconciliation events can use the existing `reconciliation.*` transformer baseline while adding a package-local DTO/recorder seam for host integrations.
 - Expected, actual, and comparison payloads are enough for the baseline to preserve reconciliation evidence without resolving discrepancies.
+- Operator action events require a dedicated `operator.*` transformer baseline because earlier domain transformer baselines intentionally covered only claim, provider, and reconciliation events.
+- Operator action recording can preserve action intent, denial/blocking facts, context, subject, execution, provider, and causation references without invoking or completing the action.
 
 ## Risks
 
@@ -192,6 +203,9 @@ Last updated: 2026-06-29
 - Provider callback status labels are currently recorded as supplied. Host packages must not treat x-journal callback records as settlement truth without domain reconciliation.
 - Reconciliation records can duplicate if host reconciliation jobs are retried; idempotency remains unresolved.
 - Reconciliation payloads may contain sensitive provider/bank file data; host APIs must pair retrieval with visibility/redaction policies before exposure.
+- Operator action records can duplicate if host applications retry the same command/audit hook; idempotency remains unresolved.
+- Operator action records may contain sensitive operator context, reasons, IP addresses, case details, and manual review notes; host APIs must pair retrieval with visibility/redaction policies before exposure.
+- Host UIs and workflow layers must not treat an operator action journal record as proof that the action was authorized, executed, or completed unless the corresponding domain event also exists.
 
 ## Architectural Decisions
 
@@ -236,6 +250,10 @@ Last updated: 2026-06-29
 - Reconciliation records preserve expected facts, actual facts, and comparison facts.
 - Reconciliation records may indicate mismatch facts, but x-journal does not decide corrections, reversals, settlement state, or next actions.
 - `provider_reference`, `execution_id`, and subject references form the Phase 10 reconciliation correlation bridge.
+- Operator action integration is an observational recording seam, not an action executor, authorization engine, workflow engine, or CTA completion mechanism.
+- Operator action records preserve actor/action/context facts and target references.
+- Blocked or denied operator actions are first-class audit facts.
+- `causation_id`, `execution_id`, `provider_reference`, external references, and subject references form the Phase 11 operator action correlation bridge.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -249,18 +267,19 @@ Last updated: 2026-06-29
 - x-change execution integration tests cover outcome normalization, successful recording, failed recording without decisions, explicit reference precedence, retrieval by execution ID, and non-mutating recording.
 - Provider callback integration tests cover payload normalization, fact recording, raw failed callback preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
 - Reconciliation integration tests cover comparison normalization, fact recording, discrepancy preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
-- Full x-journal package suite is green: `78 passed, 315 assertions`.
+- Operator action integration tests cover payload normalization, audit fact recording, denied/blocked action preservation without workflow mutation, retrieval by execution/causation references, and non-mutating recording.
+- Full x-journal package suite is green: `83 passed, 359 assertions`.
 
 ## Next Recommended Slice
 
-Phase 11 — Operator Action Integration.
+Phase 12 — Campaign Integration.
 
 Recommended next coverage:
 
-- Operator action payload normalization.
-- Operator action event recording as audit facts.
-- Tests proving operator action recording preserves actor/action/context without performing the action.
-- Correlation mapping from operator actions to execution, provider, reconciliation, claim, and subject references.
+- Campaign event payload normalization.
+- Campaign event recording as audit facts.
+- Tests proving campaign recording preserves campaign, program, beneficiary-list, distribution, and voucher batch context without issuing vouchers or deciding execution.
+- Correlation mapping from campaign events to execution, voucher, claim, provider, and subject references.
 
 ## Open Questions
 
@@ -279,3 +298,4 @@ Recommended next coverage:
 - Which x-change execution call site should be wired first once characterization tests are in place?
 - What idempotency key should be used for provider callback retries: provider reference, callback ID, provider timestamp, signature, or a composite?
 - Which provider callback source should be wired first once host package characterization tests exist?
+- What idempotency key should be used for operator action logs: action request ID, operator ID + target + timestamp, command ID, causation ID, or a composite?
