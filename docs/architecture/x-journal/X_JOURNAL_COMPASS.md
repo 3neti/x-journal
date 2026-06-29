@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 4 — Visibility and Authorization  
+Current slice: Phase 5 — Artifact Generation  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -22,7 +22,7 @@ Last updated: 2026-06-29
 | 2 | Event transformation layer | Phase 2B complete |
 | 3 | Sink architecture | Complete |
 | 4 | Visibility and authorization | Complete |
-| 5 | Artifact generation | Not started |
+| 5 | Artifact generation | Complete |
 | 6 | Verification and integrity | Not started |
 | 7 | Search and retrieval | Not started |
 | 8 | x-change execution integration | Not started |
@@ -81,6 +81,15 @@ Last updated: 2026-06-29
   - default actor-or-subject visibility policy
   - explicit `x-journal.view` permission support
   - package-consumer visibility policy seam
+- Completed Phase 5 Artifact Generation:
+  - `JournalArtifactProfileData`
+  - `JournalArtifactData`
+  - `JournalArtifactRendererContract`
+  - `JournalArtifactGenerator`
+  - text receipt renderer baseline
+  - text statement renderer baseline
+  - unsupported-profile failure behavior
+  - package-consumer artifact renderer registration seam
 
 ## Discoveries
 
@@ -95,6 +104,8 @@ Last updated: 2026-06-29
 - Built-in domain transformer baselines now support `claim.*`, `provider.*`, and `reconciliation.*` event types.
 - Sink architecture now separates canonical persistence from secondary projection/export sinks.
 - Visibility checks are read-side access decisions and do not mutate journal entries.
+- Artifact generation can be implemented as an in-memory rendering layer over canonical journal entries without adding artifact persistence.
+- Receipt and statement artifacts can carry journal reference numbers so generated outputs remain traceable back to canonical entries.
 
 ## Risks
 
@@ -107,6 +118,8 @@ Last updated: 2026-06-29
 - Domain transformer baselines intentionally preserve raw domain payloads instead of interpreting success, failure, discrepancy resolution, or required next actions.
 - Secondary sinks currently execute synchronously after canonical database persistence.
 - Default visibility allows matching journal actor, matching journal subject, or explicit `x-journal.view` permission.
+- Artifact persistence, signatures, public URLs, storage disks, and PDF generation are intentionally deferred.
+- Generated artifacts currently render from the entries supplied by the caller; authorization and query scoping must happen before artifact generation in consuming applications.
 
 ## Architectural Decisions
 
@@ -126,6 +139,10 @@ Last updated: 2026-06-29
 - `DatabaseJournalSink` remains the canonical durable sink.
 - `SecondaryJournalSinkContract` is for projections/exports only.
 - `JournalVisibilityGate` controls read visibility and does not alter journal truth.
+- Artifacts are renderings of journal truth; they are not canonical journal truth.
+- Canonical journal entries remain the durable source of evidence.
+- Built-in Phase 5 artifact formats are text/plain receipt and statement baselines.
+- Artifact renderer registration is contract-driven so host packages can add PDF, JSON, or domain-specific renderers later.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -133,18 +150,19 @@ Last updated: 2026-06-29
 
 - Package bootstrap tests exist for configuration and service-provider registration.
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
-- Full x-journal package suite is green: `43 passed, 126 assertions`.
+- Artifact generation tests cover profile normalization, receipt rendering, statement rendering, non-mutating artifact generation, unsupported renderer failure, and package-consumer renderer registration.
+- Full x-journal package suite is green: `49 passed, 145 assertions`.
 
 ## Next Recommended Slice
 
-Phase 5 — Artifact Generation.
+Phase 6 — Verification and Integrity.
 
 Recommended next coverage:
 
-- Artifact generation contracts.
-- Statement/receipt rendering baseline.
-- Artifact profile DTOs.
-- Tests proving artifacts are renderings of journal truth, not journal truth itself.
+- Integrity verification service over canonical journal entries.
+- Hash-chain verification for contiguous journal records.
+- Clear tamper/corruption failure objects or exceptions.
+- Signature strategy discovery without forcing production signing yet.
 
 ## Open Questions
 
@@ -153,3 +171,5 @@ Recommended next coverage:
 - Should default transformers be configured declaratively through config or only registered programmatically?
 - Should secondary sinks remain synchronous or move to queued dispatch before production use?
 - Should visibility policies be configured declaratively through config or composed programmatically by host packages?
+- Which artifact formats should become first-class beyond text/plain baselines: PDF, JSON, CSV, or signed bundles?
+- Where should persisted artifacts live once storage is introduced: local disk, S3-compatible storage, or host-package controlled disks?
