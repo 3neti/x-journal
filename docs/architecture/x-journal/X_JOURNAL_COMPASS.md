@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 5 — Artifact Generation  
+Current slice: Phase 6 — Verification and Integrity  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -23,7 +23,7 @@ Last updated: 2026-06-29
 | 3 | Sink architecture | Complete |
 | 4 | Visibility and authorization | Complete |
 | 5 | Artifact generation | Complete |
-| 6 | Verification and integrity | Not started |
+| 6 | Verification and integrity | Complete |
 | 7 | Search and retrieval | Not started |
 | 8 | x-change execution integration | Not started |
 | 9 | Provider callback integration | Not started |
@@ -90,6 +90,16 @@ Last updated: 2026-06-29
   - text statement renderer baseline
   - unsupported-profile failure behavior
   - package-consumer artifact renderer registration seam
+- Completed Phase 6 Verification and Integrity:
+  - `JournalIntegrityIssueData`
+  - `JournalIntegrityVerificationData`
+  - `JournalIntegrityVerifier`
+  - clean hash-chain verification
+  - canonical payload tamper detection
+  - previous-hash continuity verification
+  - missing-hash detection
+  - tests proving verification does not mutate journal entries
+  - explicit unsigned baseline behavior for future signature work
 
 ## Discoveries
 
@@ -106,6 +116,9 @@ Last updated: 2026-06-29
 - Visibility checks are read-side access decisions and do not mutate journal entries.
 - Artifact generation can be implemented as an in-memory rendering layer over canonical journal entries without adding artifact persistence.
 - Receipt and statement artifacts can carry journal reference numbers so generated outputs remain traceable back to canonical entries.
+- Verification can recompute existing deterministic hashes from persisted canonical journal payloads without changing persistence.
+- Broken previous-hash continuity is distinguishable from canonical payload tampering through issue codes.
+- Signatures are already represented in integrity data, but Phase 6 does not require or validate signatures.
 
 ## Risks
 
@@ -120,6 +133,9 @@ Last updated: 2026-06-29
 - Default visibility allows matching journal actor, matching journal subject, or explicit `x-journal.view` permission.
 - Artifact persistence, signatures, public URLs, storage disks, and PDF generation are intentionally deferred.
 - Generated artifacts currently render from the entries supplied by the caller; authorization and query scoping must happen before artifact generation in consuming applications.
+- Phase 6 verification detects tampering after the fact; it does not prevent direct database mutation.
+- Verification currently operates over the entries supplied by the caller or the full ordered journal table; scoped verification windows need careful handling in future retrieval/integration work.
+- Signature policy remains deferred and should be designed before treating generated artifacts as externally verifiable legal/evidentiary bundles.
 
 ## Architectural Decisions
 
@@ -143,6 +159,10 @@ Last updated: 2026-06-29
 - Canonical journal entries remain the durable source of evidence.
 - Built-in Phase 5 artifact formats are text/plain receipt and statement baselines.
 - Artifact renderer registration is contract-driven so host packages can add PDF, JSON, or domain-specific renderers later.
+- Integrity verification is a read-side diagnostic service; it does not mutate journal entries or enforce business policy.
+- Verification returns structured issue data instead of throwing for ordinary corruption findings.
+- Phase 6 verifies SHA-256 payload hashes and previous-hash continuity.
+- Phase 6 intentionally does not require signatures; signing remains a future hardening decision.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -151,18 +171,19 @@ Last updated: 2026-06-29
 - Package bootstrap tests exist for configuration and service-provider registration.
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
 - Artifact generation tests cover profile normalization, receipt rendering, statement rendering, non-mutating artifact generation, unsupported renderer failure, and package-consumer renderer registration.
-- Full x-journal package suite is green: `49 passed, 145 assertions`.
+- Verification and integrity tests cover clean chains, payload tampering, broken previous-hash continuity, missing hashes, non-mutating verification, and unsigned baseline behavior.
+- Full x-journal package suite is green: `55 passed, 165 assertions`.
 
 ## Next Recommended Slice
 
-Phase 6 — Verification and Integrity.
+Phase 7 — Search and Retrieval.
 
 Recommended next coverage:
 
-- Integrity verification service over canonical journal entries.
-- Hash-chain verification for contiguous journal records.
-- Clear tamper/corruption failure objects or exceptions.
-- Signature strategy discovery without forcing production signing yet.
+- Query object or service for finding journal entries by reference, actor, subject, correlation, causation, execution ID, and event type.
+- Pagination/windowing baselines for operator and API consumption.
+- Tests proving retrieval is read-only and does not bypass visibility decisions when paired with the visibility gate.
+- Clear separation between retrieval, authorization, and artifact generation.
 
 ## Open Questions
 
@@ -173,3 +194,5 @@ Recommended next coverage:
 - Should visibility policies be configured declaratively through config or composed programmatically by host packages?
 - Which artifact formats should become first-class beyond text/plain baselines: PDF, JSON, CSV, or signed bundles?
 - Where should persisted artifacts live once storage is introduced: local disk, S3-compatible storage, or host-package controlled disks?
+- Should verification support scoped windows with an externally supplied starting previous hash?
+- What signature algorithm and key-management strategy should be used for externally verifiable artifacts?
