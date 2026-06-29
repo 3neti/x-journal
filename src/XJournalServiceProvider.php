@@ -4,6 +4,7 @@ namespace LBHurtado\XJournal;
 
 use Illuminate\Support\ServiceProvider;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
+use LBHurtado\XJournal\Services\CampaignJournalRecorder;
 use LBHurtado\XJournal\Services\DatabaseJournalSink;
 use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
@@ -22,6 +23,7 @@ use LBHurtado\XJournal\Services\XChangeExecutionJournalRecorder;
 use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
 use LBHurtado\XJournal\Renderers\TextStatementArtifactRenderer;
+use LBHurtado\XJournal\Transformers\CampaignJournalTransformer;
 use LBHurtado\XJournal\Transformers\ClaimLifecycleJournalTransformer;
 use LBHurtado\XJournal\Transformers\ExecutionResultJournalTransformer;
 use LBHurtado\XJournal\Transformers\OperatorActionJournalTransformer;
@@ -49,6 +51,7 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(ProviderCallbackJournalRecorder::class);
         $this->app->singleton(ReconciliationJournalRecorder::class);
         $this->app->singleton(OperatorActionJournalRecorder::class);
+        $this->app->singleton(CampaignJournalRecorder::class);
         $this->app->singleton(JournalVisibilityGate::class, function (): JournalVisibilityGate {
             return (new JournalVisibilityGate)
                 ->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);
@@ -64,7 +67,8 @@ class XJournalServiceProvider extends ServiceProvider
                 ->register(new ClaimLifecycleJournalTransformer)
                 ->register(new ProviderCallbackJournalTransformer)
                 ->register(new ReconciliationJournalTransformer)
-                ->register(new OperatorActionJournalTransformer);
+                ->register(new OperatorActionJournalTransformer)
+                ->register(new CampaignJournalTransformer);
         });
         $this->app->singleton(JournalEventRecorder::class);
     }

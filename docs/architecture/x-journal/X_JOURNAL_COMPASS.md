@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 11 — Operator Action Integration  
+Current slice: Phase 12 — Campaign Integration  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -29,7 +29,7 @@ Last updated: 2026-06-29
 | 9 | Provider callback integration | Complete |
 | 10 | Reconciliation integration | Complete |
 | 11 | Operator action integration | Complete |
-| 12 | Campaign integration | Not started |
+| 12 | Campaign integration | Complete |
 | 13 | Cockpit integration | Not started |
 | 14 | Hardening | Not started |
 | 15 | Production readiness | Not started |
@@ -146,6 +146,16 @@ Last updated: 2026-06-29
   - blocked/denied operator action recording without workflow mutation, execution, money movement, or CTA completion
   - retrieval of operator action entries by execution and causation references
   - tests proving supplied operator action data is not mutated
+- Completed Phase 12 Campaign Integration:
+  - `CampaignEventData`
+  - `CampaignJournalRecorder`
+  - `CampaignJournalTransformer`
+  - campaign event payload normalization
+  - campaign, program, beneficiary-list, distribution, and voucher batch context preservation
+  - campaign batch fact recording without voucher issuance, execution decisions, campaign state mutation, or distribution dispatch
+  - retrieval of campaign entries by execution and program/causation references
+  - tests proving supplied campaign event data is not mutated
+  - updated unsupported-transformer coverage to use an actually unsupported `exception.*` event now that `campaign.*` is supported
 
 ## Discoveries
 
@@ -177,6 +187,8 @@ Last updated: 2026-06-29
 - Expected, actual, and comparison payloads are enough for the baseline to preserve reconciliation evidence without resolving discrepancies.
 - Operator action events require a dedicated `operator.*` transformer baseline because earlier domain transformer baselines intentionally covered only claim, provider, and reconciliation events.
 - Operator action recording can preserve action intent, denial/blocking facts, context, subject, execution, provider, and causation references without invoking or completing the action.
+- Campaign events require a dedicated `campaign.*` transformer baseline because campaign/program distribution facts are distinct from execution, provider, reconciliation, and operator action facts.
+- Campaign event recording can preserve planning, beneficiary-list, distribution, and batch evidence without depending on x-campaign classes or causing voucher issuance.
 
 ## Risks
 
@@ -206,6 +218,9 @@ Last updated: 2026-06-29
 - Operator action records can duplicate if host applications retry the same command/audit hook; idempotency remains unresolved.
 - Operator action records may contain sensitive operator context, reasons, IP addresses, case details, and manual review notes; host APIs must pair retrieval with visibility/redaction policies before exposure.
 - Host UIs and workflow layers must not treat an operator action journal record as proof that the action was authorized, executed, or completed unless the corresponding domain event also exists.
+- Campaign records can duplicate if host batch planners or distribution jobs retry journal recording; idempotency remains unresolved.
+- Campaign records may contain sensitive beneficiary-list counts, targeting criteria, program details, distribution schedules, and voucher batch identifiers; host APIs must pair retrieval with visibility/redaction policies before exposure.
+- Host campaign layers must not treat campaign journal records as voucher issuance, execution, distribution dispatch, or campaign lifecycle mutation.
 
 ## Architectural Decisions
 
@@ -254,6 +269,9 @@ Last updated: 2026-06-29
 - Operator action records preserve actor/action/context facts and target references.
 - Blocked or denied operator actions are first-class audit facts.
 - `causation_id`, `execution_id`, `provider_reference`, external references, and subject references form the Phase 11 operator action correlation bridge.
+- Campaign integration is an observational recording seam, not a campaign engine, issuance engine, distribution dispatcher, or execution coordinator.
+- Campaign records preserve campaign, program, beneficiary-list, distribution, and voucher batch facts.
+- `causation_id`, `execution_id`, external references, reference metadata, and subject references form the Phase 12 campaign correlation bridge.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -268,18 +286,19 @@ Last updated: 2026-06-29
 - Provider callback integration tests cover payload normalization, fact recording, raw failed callback preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
 - Reconciliation integration tests cover comparison normalization, fact recording, discrepancy preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
 - Operator action integration tests cover payload normalization, audit fact recording, denied/blocked action preservation without workflow mutation, retrieval by execution/causation references, and non-mutating recording.
-- Full x-journal package suite is green: `83 passed, 359 assertions`.
+- Campaign integration tests cover payload normalization, audit fact recording, batch fact preservation without issuance/execution/distribution decisions, retrieval by execution/program references, and non-mutating recording.
+- Full x-journal package suite is green: `88 passed, 410 assertions`.
 
 ## Next Recommended Slice
 
-Phase 12 — Campaign Integration.
+Phase 13 — Cockpit Integration.
 
 Recommended next coverage:
 
-- Campaign event payload normalization.
-- Campaign event recording as audit facts.
-- Tests proving campaign recording preserves campaign, program, beneficiary-list, distribution, and voucher batch context without issuing vouchers or deciding execution.
-- Correlation mapping from campaign events to execution, voucher, claim, provider, and subject references.
+- Cockpit event/query payload normalization.
+- Cockpit-facing journal retrieval/read-model seam.
+- Tests proving Cockpit integration exposes journal facts without inventing domain behavior, bypassing visibility, mutating entries, or executing operator actions.
+- Correlation mapping from Cockpit views/actions to journal entries, operator actions, execution, provider, reconciliation, claim, campaign, and subject references.
 
 ## Open Questions
 
@@ -299,3 +318,4 @@ Recommended next coverage:
 - What idempotency key should be used for provider callback retries: provider reference, callback ID, provider timestamp, signature, or a composite?
 - Which provider callback source should be wired first once host package characterization tests exist?
 - What idempotency key should be used for operator action logs: action request ID, operator ID + target + timestamp, command ID, causation ID, or a composite?
+- What idempotency key should be used for campaign records: campaign event ID, batch ID + event type, distribution plan ID, causation ID, or a composite?

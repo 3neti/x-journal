@@ -109,7 +109,7 @@ it('does not make business decisions while transforming failed execution results
 
 it('fails clearly when no transformer supports an event', function () {
     $event = executionJournalEvent([
-        'event_type' => 'campaign.distribution.started',
+        'event_type' => 'exception.unhandled',
     ]);
 
     expect(fn () => app(JournalEventTransformerRegistry::class)->transform($event))
