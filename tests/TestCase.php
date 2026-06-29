@@ -2,14 +2,19 @@
 
 namespace LBHurtado\XJournal\Tests;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use LBHurtado\XJournal\XJournalServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Spatie\LaravelData\LaravelDataServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
+    use RefreshDatabase;
+
     protected function getPackageProviders($app): array
     {
         return [
+            LaravelDataServiceProvider::class,
             XJournalServiceProvider::class,
         ];
     }
@@ -25,4 +30,3 @@ abstract class TestCase extends Orchestra
         ]);
     }
 }
-

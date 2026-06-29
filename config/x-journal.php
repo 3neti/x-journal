@@ -12,5 +12,9 @@ return [
     */
 
     'connection' => null,
-];
 
+    'reference_number' => [
+        'prefix' => 'ERN',
+        'digits' => 9,
+    ],
+];
