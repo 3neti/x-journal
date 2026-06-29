@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 6 — Verification and Integrity  
+Current slice: Phase 7 — Search and Retrieval  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -24,7 +24,7 @@ Last updated: 2026-06-29
 | 4 | Visibility and authorization | Complete |
 | 5 | Artifact generation | Complete |
 | 6 | Verification and integrity | Complete |
-| 7 | Search and retrieval | Not started |
+| 7 | Search and retrieval | Complete |
 | 8 | x-change execution integration | Not started |
 | 9 | Provider callback integration | Not started |
 | 10 | Reconciliation integration | Not started |
@@ -100,6 +100,16 @@ Last updated: 2026-06-29
   - missing-hash detection
   - tests proving verification does not mutate journal entries
   - explicit unsigned baseline behavior for future signature work
+- Completed Phase 7 Search and Retrieval:
+  - `JournalRetrievalQueryData`
+  - `JournalRetrievalResultData`
+  - `JournalEntryRetriever`
+  - reference-number lookup
+  - actor and subject projection filters
+  - correlation, causation, execution ID, and event-type filters
+  - bounded limit/offset windowing
+  - deterministic ascending/descending ordering
+  - tests proving retrieval does not mutate journal entries
 
 ## Discoveries
 
@@ -119,6 +129,9 @@ Last updated: 2026-06-29
 - Verification can recompute existing deterministic hashes from persisted canonical journal payloads without changing persistence.
 - Broken previous-hash continuity is distinguishable from canonical payload tampering through issue codes.
 - Signatures are already represented in integrity data, but Phase 6 does not require or validate signatures.
+- Search and retrieval can use existing scalar projection columns introduced in Phase 1B without schema changes.
+- Retrieval is intentionally separate from visibility decisions; consuming layers must pair retrieval with `JournalVisibilityGate` when exposing entries.
+- Bounded limit/offset windows are enough for the package baseline; cursor pagination can be introduced later if operator views need it.
 
 ## Risks
 
@@ -136,6 +149,8 @@ Last updated: 2026-06-29
 - Phase 6 verification detects tampering after the fact; it does not prevent direct database mutation.
 - Verification currently operates over the entries supplied by the caller or the full ordered journal table; scoped verification windows need careful handling in future retrieval/integration work.
 - Signature policy remains deferred and should be designed before treating generated artifacts as externally verifiable legal/evidentiary bundles.
+- Retrieval services can expose sensitive journal entries if host packages do not compose them with visibility policies before API/UI exposure.
+- Offset-based pagination is simple and deterministic for the baseline, but may need cursor pagination for large production journals.
 
 ## Architectural Decisions
 
@@ -163,6 +178,10 @@ Last updated: 2026-06-29
 - Verification returns structured issue data instead of throwing for ordinary corruption findings.
 - Phase 6 verifies SHA-256 payload hashes and previous-hash continuity.
 - Phase 6 intentionally does not require signatures; signing remains a future hardening decision.
+- Retrieval is read-only query infrastructure; it does not authorize, redact, generate artifacts, verify integrity, or decide workflow outcomes.
+- Phase 7 retrieval filters operate on indexed scalar projections where available.
+- Query windows are bounded to a maximum limit of 200 entries in the baseline DTO.
+- Visibility remains a separate layer composed by consumers or future integration services.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -172,18 +191,19 @@ Last updated: 2026-06-29
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
 - Artifact generation tests cover profile normalization, receipt rendering, statement rendering, non-mutating artifact generation, unsupported renderer failure, and package-consumer renderer registration.
 - Verification and integrity tests cover clean chains, payload tampering, broken previous-hash continuity, missing hashes, non-mutating verification, and unsigned baseline behavior.
-- Full x-journal package suite is green: `55 passed, 165 assertions`.
+- Search and retrieval tests cover query normalization, reference lookup, actor/subject filters, correlation/causation/execution/event filters, deterministic windows, descending order, and non-mutating retrieval.
+- Full x-journal package suite is green: `62 passed, 189 assertions`.
 
 ## Next Recommended Slice
 
-Phase 7 — Search and Retrieval.
+Phase 8 — x-change Execution Integration.
 
 Recommended next coverage:
 
-- Query object or service for finding journal entries by reference, actor, subject, correlation, causation, execution ID, and event type.
-- Pagination/windowing baselines for operator and API consumption.
-- Tests proving retrieval is read-only and does not bypass visibility decisions when paired with the visibility gate.
-- Clear separation between retrieval, authorization, and artifact generation.
+- Integration adapter tests for recording x-change/voucher execution outcomes through x-journal without making execution depend on journal storage.
+- Correlation mapping from voucher `execution_id` into x-journal references.
+- Tests proving execution integration records facts without changing execution behavior.
+- Package-boundary review before modifying x-change or voucher call sites.
 
 ## Open Questions
 
@@ -196,3 +216,5 @@ Recommended next coverage:
 - Where should persisted artifacts live once storage is introduced: local disk, S3-compatible storage, or host-package controlled disks?
 - Should verification support scoped windows with an externally supplied starting previous hash?
 - What signature algorithm and key-management strategy should be used for externally verifiable artifacts?
+- Should production retrieval use cursor pagination before Cockpit/operator screens consume large journals?
+- Should retrieval queries support date windows in Phase 8+ or wait for Cockpit/search hardening?
