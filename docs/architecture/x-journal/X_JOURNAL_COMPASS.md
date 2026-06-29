@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 1B — Core Journal Foundation hardening  
+Current slice: Phase 2 — Event Transformation Layer  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -19,7 +19,7 @@ Last updated: 2026-06-29
 |---|---|---|
 | 0 | Architectural foundation and package bootstrap | Complete |
 | 1 | Core journal foundation | Phase 1B complete |
-| 2 | Event transformation layer | Not started |
+| 2 | Event transformation layer | Complete |
 | 3 | Sink architecture | Not started |
 | 4 | Visibility and authorization | Not started |
 | 5 | Artifact generation | Not started |
@@ -54,6 +54,14 @@ Last updated: 2026-06-29
   - deterministic integrity hash calculation
   - previous-hash chaining between persisted journal entries
   - package-consumer sink replacement seam via `JournalSinkContract`
+- Completed Phase 2 Event Transformation Layer:
+  - `JournalEventData` for normalized incoming event payloads
+  - `JournalEventTransformerContract`
+  - `JournalEventTransformerRegistry`
+  - `JournalEventRecorder`
+  - `ExecutionResultJournalTransformer`
+  - clear unsupported-event failure behavior
+  - package-consumer transformer registration seam
 
 ## Discoveries
 
@@ -63,6 +71,8 @@ Last updated: 2026-06-29
 - Phase 1A uses `spatie/laravel-data` DTOs, matching the planning docs and local package conventions.
 - The initial journal schema stores canonical actor, subject, money, references, payload, integrity, and metadata as JSON.
 - Scalar projections are now stored beside the canonical JSON payload for actor, subject, correlation, causation, and execution IDs.
+- Event transformers normalize raw event payloads into journal-entry data; they do not decide lifecycle outcomes.
+- The first built-in transformer supports `execution.*` event types only.
 
 ## Risks
 
@@ -71,6 +81,7 @@ Last updated: 2026-06-29
 - x-journal must remain independent of voucher execution internals and x-change product workflow decisions.
 - Current append-only enforcement is model-event based; direct database updates remain outside this slice.
 - Hash chaining is deterministic but not yet signed; signature strategy remains a later verification concern.
+- Phase 2 intentionally avoids dependencies on voucher or x-change classes; integration adapters remain future work.
 
 ## Architectural Decisions
 
@@ -83,6 +94,8 @@ Last updated: 2026-06-29
 - ERN sequencing uses `execution_journal_reference_counters` keyed by prefix and year.
 - x-journal stores scalar projection columns for common query dimensions while retaining canonical JSON payloads.
 - Integrity hashing uses SHA-256 over a canonical execution-journal payload and includes `previous_hash`.
+- Event transformation is package-local and contract-driven.
+- Unsupported event types fail clearly with `JournalEventTransformerNotFoundException`.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -90,20 +103,21 @@ Last updated: 2026-06-29
 
 - Package bootstrap tests exist for configuration and service-provider registration.
 - Core journal foundation tests cover entry persistence, ERN generation, append-only behavior, DTO normalization, recorder behavior, and database sink behavior.
-- Full x-journal package suite is green: `19 passed, 49 assertions`.
+- Full x-journal package suite is green: `25 passed, 71 assertions`.
 
 ## Next Recommended Slice
 
-Phase 2 — Event Transformation Layer.
+Phase 2B — Domain Event Transformer Baselines.
 
 Recommended next coverage:
 
-- Execution/result event transformer contracts.
-- Event-to-journal DTO normalization.
-- Claim lifecycle and provider callback transformer baselines.
-- Boundary tests proving transformers normalize events but do not make business decisions.
+- Claim lifecycle transformer baseline.
+- Provider callback transformer baseline.
+- Reconciliation event transformer baseline.
+- Boundary tests proving domain transformers normalize events but do not make business decisions.
 
 ## Open Questions
 
 - Which host package should first consume x-journal: x-change adapters, voucher events, or a dedicated integration layer?
 - What signature strategy should be used for future tamper-evident verification artifacts?
+- Should default transformers be configured declaratively through config or only registered programmatically?
