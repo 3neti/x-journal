@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 12 — Campaign Integration  
+Current slice: Phase 13 — Cockpit Integration  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -30,7 +30,7 @@ Last updated: 2026-06-29
 | 10 | Reconciliation integration | Complete |
 | 11 | Operator action integration | Complete |
 | 12 | Campaign integration | Complete |
-| 13 | Cockpit integration | Not started |
+| 13 | Cockpit integration | Complete |
 | 14 | Hardening | Not started |
 | 15 | Production readiness | Not started |
 
@@ -156,6 +156,15 @@ Last updated: 2026-06-29
   - retrieval of campaign entries by execution and program/causation references
   - tests proving supplied campaign event data is not mutated
   - updated unsupported-transformer coverage to use an actually unsupported `exception.*` event now that `campaign.*` is supported
+- Completed Phase 13 Cockpit Integration:
+  - `CockpitJournalQueryData`
+  - `CockpitJournalEntryData`
+  - `CockpitJournalViewData`
+  - `CockpitJournalReader`
+  - Cockpit-facing journal query normalization
+  - Cockpit read-model projection over canonical journal entries
+  - retrieval composed with `JournalVisibilityGate`
+  - tests proving Cockpit reads expose journal facts without bypassing visibility, executing operator actions, or mutating journal entries
 
 ## Discoveries
 
@@ -189,6 +198,8 @@ Last updated: 2026-06-29
 - Operator action recording can preserve action intent, denial/blocking facts, context, subject, execution, provider, and causation references without invoking or completing the action.
 - Campaign events require a dedicated `campaign.*` transformer baseline because campaign/program distribution facts are distinct from execution, provider, reconciliation, and operator action facts.
 - Campaign event recording can preserve planning, beneficiary-list, distribution, and batch evidence without depending on x-campaign classes or causing voucher issuance.
+- Cockpit integration can be implemented as a read-side seam over existing retrieval and visibility services without adding UI, controllers, routes, or domain behavior.
+- Cockpit read models benefit from preserving visibility reasons so operator-facing screens can explain why an entry is visible.
 
 ## Risks
 
@@ -221,6 +232,9 @@ Last updated: 2026-06-29
 - Campaign records can duplicate if host batch planners or distribution jobs retry journal recording; idempotency remains unresolved.
 - Campaign records may contain sensitive beneficiary-list counts, targeting criteria, program details, distribution schedules, and voucher batch identifiers; host APIs must pair retrieval with visibility/redaction policies before exposure.
 - Host campaign layers must not treat campaign journal records as voucher issuance, execution, distribution dispatch, or campaign lifecycle mutation.
+- Cockpit read models expose canonical journal payloads and may surface sensitive data; host Cockpit APIs must add redaction/presentation rules before broad operator exposure.
+- Phase 13 visibility filtering happens after the retrieval window. A page can contain fewer visible entries than the underlying query window; production Cockpit pagination may need visibility-aware cursor/windowing.
+- Cockpit read models are read-side projections only. Host Cockpit code must not treat them as command execution, action authorization, or lifecycle truth beyond the underlying journal facts.
 
 ## Architectural Decisions
 
@@ -272,6 +286,9 @@ Last updated: 2026-06-29
 - Campaign integration is an observational recording seam, not a campaign engine, issuance engine, distribution dispatcher, or execution coordinator.
 - Campaign records preserve campaign, program, beneficiary-list, distribution, and voucher batch facts.
 - `causation_id`, `execution_id`, external references, reference metadata, and subject references form the Phase 12 campaign correlation bridge.
+- Cockpit integration is a read-side projection seam, not an operator shell implementation, action executor, authorization bypass, or domain workflow layer.
+- `CockpitJournalReader` composes `JournalEntryRetriever` with `JournalVisibilityGate`.
+- Cockpit read models preserve canonical journal actor, subject, reference, payload, metadata, and visibility-reason facts.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -287,18 +304,19 @@ Last updated: 2026-06-29
 - Reconciliation integration tests cover comparison normalization, fact recording, discrepancy preservation without decisions, retrieval by execution/provider references, and non-mutating recording.
 - Operator action integration tests cover payload normalization, audit fact recording, denied/blocked action preservation without workflow mutation, retrieval by execution/causation references, and non-mutating recording.
 - Campaign integration tests cover payload normalization, audit fact recording, batch fact preservation without issuance/execution/distribution decisions, retrieval by execution/program references, and non-mutating recording.
-- Full x-journal package suite is green: `88 passed, 410 assertions`.
+- Cockpit integration tests cover query normalization, read-model projection, visibility-gated retrieval, subject-visible reads, non-execution of operator actions, and non-mutating reads.
+- Full x-journal package suite is green: `93 passed, 441 assertions`.
 
 ## Next Recommended Slice
 
-Phase 13 — Cockpit Integration.
+Phase 14 — Hardening.
 
 Recommended next coverage:
 
-- Cockpit event/query payload normalization.
-- Cockpit-facing journal retrieval/read-model seam.
-- Tests proving Cockpit integration exposes journal facts without inventing domain behavior, bypassing visibility, mutating entries, or executing operator actions.
-- Correlation mapping from Cockpit views/actions to journal entries, operator actions, execution, provider, reconciliation, claim, campaign, and subject references.
+- Architecture invariant tests for append-only behavior, unsupported event failure, visibility composition, and no cross-package runtime dependencies.
+- Idempotency strategy documentation or explicit deferral for execution outcomes, provider callbacks, reconciliation records, operator actions, and campaign records.
+- Visibility-aware retrieval/pagination risk characterization.
+- Redaction/presentation boundary characterization for Cockpit-facing read models.
 
 ## Open Questions
 
@@ -319,3 +337,5 @@ Recommended next coverage:
 - Which provider callback source should be wired first once host package characterization tests exist?
 - What idempotency key should be used for operator action logs: action request ID, operator ID + target + timestamp, command ID, causation ID, or a composite?
 - What idempotency key should be used for campaign records: campaign event ID, batch ID + event type, distribution plan ID, causation ID, or a composite?
+- Should Cockpit read models return raw canonical payloads by default, or should x-journal provide optional redaction profiles before host Cockpit APIs expose them?
+- Should Cockpit retrieval become visibility-aware before pagination, or should host APIs request larger windows and paginate after visibility filtering?
