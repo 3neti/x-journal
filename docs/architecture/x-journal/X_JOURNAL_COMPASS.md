@@ -9,7 +9,7 @@ The package records what happened across execution, claims, authorization, settl
 ## Current Position
 
 Current wave: Wave 2A — x-journal  
-Current slice: Phase 14 — Hardening  
+Current slice: Phase 15 — Production Readiness  
 Status: Complete  
 Last updated: 2026-06-29
 
@@ -32,7 +32,7 @@ Last updated: 2026-06-29
 | 12 | Campaign integration | Complete |
 | 13 | Cockpit integration | Complete |
 | 14 | Hardening | Complete |
-| 15 | Production readiness | Not started |
+| 15 | Production readiness | Complete |
 
 ## Completed Work
 
@@ -173,6 +173,14 @@ Last updated: 2026-06-29
   - explicit built-in transformer coverage for supported domains
   - fail-closed unsupported event coverage before persistence side effects
   - Cockpit post-retrieval visibility-window characterization
+- Completed Phase 15 Production Readiness:
+  - production readiness checklist
+  - production deferrals ADR
+  - package release posture documentation
+  - installation expectations documentation
+  - validation command documentation
+  - production-readiness tests for documentation, Composer metadata, config publishing, and migration availability
+  - Wave 2A closure recommendation
 
 ## Discoveries
 
@@ -211,6 +219,8 @@ Last updated: 2026-06-29
 - Phase 14 confirmed x-journal currently avoids runtime Composer dependencies on voucher, x-change, x-action, x-feedback, x-campaign, settlement-envelope, wallet, and cash.
 - Phase 14 confirmed the execution transformer remains the only built-in transformer without a `domain` metadata key; it still records its transformer class. This is existing behavior and was characterized, not changed.
 - Unsupported events fail before journal persistence through `JournalEventRecorder`, preserving fail-closed behavior for unrecognized domains.
+- Phase 15 confirmed Testbench `base_path()` points to the temporary Laravel app, so package-file readiness tests must resolve the package root directly.
+- Production readiness can close the package scaffolding without resolving host-specific concerns when those concerns are explicitly documented as deferrals.
 
 ## Risks
 
@@ -249,6 +259,8 @@ Last updated: 2026-06-29
 - Direct database writes can still bypass model-level append-only guards; database-level immutability remains outside this package baseline.
 - Idempotency remains unresolved across execution outcomes, provider callbacks, reconciliation records, operator actions, and campaign records.
 - Execution transformer metadata shape differs from later domain transformers because it lacks a `domain` key; consumers should not assume every transformed entry has `metadata.domain`.
+- Phase 15 does not make x-journal production-wired in host applications. Host integration must still be performed through package-specific characterization tests.
+- The package is release-ready as a foundation, not as a complete production audit system with idempotency, database immutability, signatures, redaction, and visibility-aware pagination resolved.
 
 ## Architectural Decisions
 
@@ -307,6 +319,9 @@ Last updated: 2026-06-29
 - x-journal must not add runtime dependencies on settlement domain packages without an explicit boundary decision.
 - Unsupported event types must fail closed before persistence.
 - Model-level append-only guards remain an architecture invariant, with database-level enforcement deferred.
+- Phase 15 closes Wave 2A x-journal package scaffolding.
+- Idempotency, database-level immutability, signatures, artifact persistence, redaction, visibility-aware pagination, secondary-sink queueing, and live host wiring are explicit production deferrals.
+- The next recommended workstream is Wave 2B — x-action.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
 
@@ -324,20 +339,20 @@ Last updated: 2026-06-29
 - Campaign integration tests cover payload normalization, audit fact recording, batch fact preservation without issuance/execution/distribution decisions, retrieval by execution/program references, and non-mutating recording.
 - Cockpit integration tests cover query normalization, read-model projection, visibility-gated retrieval, subject-visible reads, non-execution of operator actions, and non-mutating reads.
 - Architecture hardening tests cover runtime package independence, singleton infrastructure bindings, append-only invariants, supported transformer domains, unsupported-event fail-closed behavior, no persistence side effects for unsupported events, and Cockpit post-retrieval visibility windowing.
-- Full x-journal package suite is green: `99 passed, 466 assertions`.
+- Production readiness tests cover release documentation, explicit deferrals, Composer metadata, Laravel auto-discovery, config publishing, and migration availability.
+- Full x-journal package suite is green: `102 passed, 496 assertions`.
 
 ## Next Recommended Slice
 
-Phase 15 — Production Readiness.
+Wave 2B — x-action.
 
 Recommended next coverage:
 
-- Production readiness checklist and release notes.
-- Explicit idempotency ADR or deferral record.
-- Database-level immutability strategy decision.
-- Signature/key-management strategy decision for externally verifiable artifacts.
-- Redaction/presentation strategy decision for Cockpit-facing read models.
-- Visibility-aware pagination strategy decision.
+- Scaffold or inspect `/Users/rli/PhpstormProjects/packages/x-action`.
+- Read `/Users/rli/PhpstormProjects/x-change-sandbox/docs/todo/x-action`.
+- Establish the x-action Compass.
+- Begin only the authorized first x-action slice.
+- Keep x-action as workflow continuation / CTA state; it must not execute money movement or mutate journal truth.
 
 ## Open Questions
 
