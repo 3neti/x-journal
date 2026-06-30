@@ -14,6 +14,7 @@ use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotReconciler;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotVerifier;
 
 function statementJournalEntryData(
     ?string $referenceNumber = null,
@@ -435,4 +436,119 @@ it('flags snapshot mismatches when subject entries drift after snapshot creation
         ->and($result->expectedEntriesCount)->toBe(1)
         ->and($result->issues)->toContain('entries_count_mismatch')
         ->and($result->issues)->toContain('entries_hash_mismatch');
+});
+
+it('verifies a complete snapshot set through the recovery verifier', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $verifier = app(ExecutionStatementSnapshotVerifier::class);
+
+    $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-verify-clean',
+        entries: collect([
+            $recorder->record(statementJournalEntryData(
+                subjectId: 'wallet-verify-clean',
+                subjectType: 'wallet',
+                occurredAt: CarbonImmutable::parse('2026-06-10 10:00:00', 'UTC'),
+            )),
+        ]),
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:00:00', 'UTC'),
+    );
+
+    $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-verify-clean',
+        entries: collect([
+            $recorder->record(statementJournalEntryData(
+                subjectId: 'wallet-verify-clean',
+                subjectType: 'wallet',
+                occurredAt: CarbonImmutable::parse('2026-07-10 10:00:00', 'UTC'),
+            )),
+        ]),
+        periodStart: CarbonImmutable::parse('2026-07-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-07-31 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-07-31 10:00:00', 'UTC'),
+    );
+
+    $result = $verifier->verifyAll(new ExecutionStatementSnapshotQueryData(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-verify-clean',
+    ));
+
+    expect($result->isVerified())->toBeTrue()
+        ->and($result->checkedSnapshotCount)->toBe(2)
+        ->and($result->issues)->toBe([]);
+});
+
+it('reports structured recovery verifier issues for chain and replay mismatches', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $verifier = app(ExecutionStatementSnapshotVerifier::class);
+
+    $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-verify-bad',
+        entries: collect([
+            $recorder->record(statementJournalEntryData(
+                subjectId: 'wallet-verify-bad',
+                subjectType: 'wallet',
+                occurredAt: CarbonImmutable::parse('2026-06-10 10:00:00', 'UTC'),
+            )),
+        ]),
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:00:00', 'UTC'),
+    );
+
+    $second = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-verify-bad',
+        entries: collect([
+            $recorder->record(statementJournalEntryData(
+                subjectId: 'wallet-verify-bad',
+                subjectType: 'wallet',
+                occurredAt: CarbonImmutable::parse('2026-07-10 10:00:00', 'UTC'),
+            )),
+        ]),
+        periodStart: CarbonImmutable::parse('2026-07-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-07-31 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-07-31 10:00:00', 'UTC'),
+    );
+
+    DB::table('execution_statement_snapshots')
+        ->where('id', $second->id)
+        ->update(['payload_json' => json_encode(['tampered' => true], JSON_THROW_ON_ERROR)]);
+
+    $recorder->record(statementJournalEntryData(
+        subjectId: 'wallet-verify-bad',
+        subjectType: 'wallet',
+        occurredAt: CarbonImmutable::parse('2026-07-15 12:00:00', 'UTC'),
+    ));
+
+    DB::table('execution_statement_snapshots')
+        ->where('id', $second->id)
+        ->update(['previous_hash' => 'broken-prev']);
+
+    $result = $verifier->verifyAll(new ExecutionStatementSnapshotQueryData(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-verify-bad',
+    ));
+
+    $codes = collect($result->issues)->pluck('code')->all();
+
+    expect($result->isVerified())->toBeFalse()
+        ->and($result->checkedSnapshotCount)->toBe(2)
+        ->and($codes)->toContain('hash_mismatch')
+        ->and($codes)->toContain('previous_hash_mismatch')
+        ->and($codes)->toContain('entries_count_mismatch')
+        ->and($codes)->toContain('entries_hash_mismatch');
 });

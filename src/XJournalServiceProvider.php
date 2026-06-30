@@ -15,6 +15,8 @@ use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotReconciler;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotVerifier;
 use LBHurtado\XJournal\Services\JournalEntryRetriever;
 use LBHurtado\XJournal\Services\JournalArtifactGenerator;
 use LBHurtado\XJournal\Services\JournalEventRecorder;
@@ -96,6 +98,8 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(ExecutionStatementSnapshotHasher::class);
         $this->app->singleton(ExecutionStatementSnapshotGenerator::class);
         $this->app->singleton(ExecutionStatementSnapshotRetriever::class);
+        $this->app->singleton(ExecutionStatementSnapshotReconciler::class);
+        $this->app->singleton(ExecutionStatementSnapshotVerifier::class);
         $this->app->singleton(JournalVisibilityAccessReasonLoggerContract::class, NullJournalVisibilityAccessReasonLogger::class);
         $this->app->singleton(JournalVisibilityProfileResolverContract::class, DefaultJournalVisibilityProfileResolver::class);
         $this->app->singleton(JournalIdempotencyKeyResolverContract::class, DefaultJournalIdempotencyKeyResolver::class);
