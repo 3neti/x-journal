@@ -8,6 +8,7 @@ use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Data\ExecutionStatementSnapshotQueryData;
 use LBHurtado\XJournal\Models\ExecutionStatementSnapshot;
+use Illuminate\Support\Facades\DB;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
@@ -251,4 +252,104 @@ it('does not mutate snapshots while searching', function () {
     app(ExecutionStatementSnapshotRetriever::class)->search(new ExecutionStatementSnapshotQueryData(statementType: 'program'));
 
     expect($snapshot->fresh()?->toArray())->toBe($original);
+});
+
+it('verifies a clean recovery snapshot chain', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $entries = collect([$recorder->record(statementJournalEntryData())]);
+
+    $first = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-chain',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 09:00:00', 'UTC'),
+    );
+
+    $second = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-chain',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-07-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-07-31 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-07-31 10:00:00', 'UTC'),
+    );
+
+    $third = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-chain',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-08-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-08-31 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-08-31 10:00:00', 'UTC'),
+    );
+
+    expect($second->previous_hash)->toBe($first->hash)
+        ->and($third->previous_hash)->toBe($second->hash)
+        ->and(app(ExecutionStatementSnapshotRetriever::class)->verifyChainForQuery(
+            new ExecutionStatementSnapshotQueryData(statementType: 'wallet', subjectType: 'wallet', subjectId: 'wallet-chain')
+        ))->toBeTrue();
+});
+
+it('reports an invalid chain when a snapshot hash is tampered', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $entries = collect([$recorder->record(statementJournalEntryData())]);
+
+    $first = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-tamper',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 09:00:00', 'UTC'),
+    );
+
+    DB::table('execution_statement_snapshots')
+        ->where('id', $first->id)
+        ->update(['payload_json' => json_encode(['notes' => 'tampered'], JSON_THROW_ON_ERROR)]);
+
+    expect(app(ExecutionStatementSnapshotRetriever::class)->verifyChainForQuery(
+        new ExecutionStatementSnapshotQueryData(statementType: 'wallet', subjectType: 'wallet', subjectId: 'wallet-tamper')
+    ))->toBeFalse();
+});
+
+it('reports an invalid chain when previous hash links are broken', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $entries = collect([$recorder->record(statementJournalEntryData())]);
+
+    $first = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-links',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 09:00:00', 'UTC'),
+    );
+
+    $second = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-links',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-07-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-07-31 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-07-31 09:00:00', 'UTC'),
+    );
+
+    DB::table('execution_statement_snapshots')
+        ->where('id', $second->id)
+        ->update(['previous_hash' => 'broken-prev']);
+
+    expect(app(ExecutionStatementSnapshotRetriever::class)->verifyChainForQuery(
+        new ExecutionStatementSnapshotQueryData(statementType: 'wallet', subjectType: 'wallet', subjectId: 'wallet-links')
+    ))->toBeFalse();
 });

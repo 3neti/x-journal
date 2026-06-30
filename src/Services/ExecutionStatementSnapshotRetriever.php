@@ -9,6 +9,10 @@ use LBHurtado\XJournal\Models\ExecutionStatementSnapshot;
 
 class ExecutionStatementSnapshotRetriever
 {
+    public function __construct(
+        protected ExecutionStatementSnapshotHasher $hasher,
+    ) {}
+
     public function findByStatementNumber(string $statementNumber): ?ExecutionStatementSnapshot
     {
         return ExecutionStatementSnapshot::query()
@@ -45,6 +49,25 @@ class ExecutionStatementSnapshotRetriever
             limit: $query->limit,
             offset: $query->offset,
         );
+    }
+
+    public function verifyChainForQuery(ExecutionStatementSnapshotQueryData $query): bool
+    {
+        $snapshots = $this->orderedQueryForVerification($query)->get();
+
+        return $this->hasher->snapshotChainIsValid($snapshots->all());
+    }
+
+    public function allMatchingQuery(ExecutionStatementSnapshotQueryData $query): Builder
+    {
+        return $this->applyFilters(ExecutionStatementSnapshot::query(), $query);
+    }
+
+    public function orderedQueryForVerification(ExecutionStatementSnapshotQueryData $query): Builder
+    {
+        return $this->allMatchingQuery($query)
+            ->orderBy('generated_at', 'asc')
+            ->orderBy('id', 'asc');
     }
 
     /**
