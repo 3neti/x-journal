@@ -1,6 +1,7 @@
 <?php
 
 namespace LBHurtado\XJournal\Services;
+
 use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
 use LBHurtado\XJournal\Data\JournalAccessActorData;
 use LBHurtado\XJournal\Data\JournalAccessDecisionData;
@@ -62,12 +63,21 @@ class DefaultJournalVisibilityProfileResolver implements JournalVisibilityProfil
     protected function resolveByEventProfile(string $eventType, array $roles, JournalAccessDecisionData $decision): ?JournalVisibilityProfileData
     {
         $eventProfiles = config('x-journal.visibility.event_profiles', []);
-        if (! is_array($eventProfiles) || ! array_key_exists($eventType, $eventProfiles) || ! is_array($eventProfiles[$eventType])) {
+        if (! is_array($eventProfiles) || ! array_key_exists($eventType, $eventProfiles)) {
             return null;
         }
 
         $policy = $eventProfiles[$eventType];
-        $roleMappings = $policy['roles'] ?? [];
+        $directProfile = $this->extractDirectEventProfile($policy);
+        if ($directProfile !== null) {
+            return $directProfile;
+        }
+
+        if (! is_array($policy)) {
+            return null;
+        }
+
+        $roleMappings = $policy['roles'] ?? $policy;
         if (! is_array($roleMappings)) {
             return null;
         }
@@ -87,6 +97,42 @@ class DefaultJournalVisibilityProfileResolver implements JournalVisibilityProfil
         }
 
         return null;
+    }
+
+    protected function extractDirectEventProfile(mixed $policy): ?JournalVisibilityProfileData
+    {
+        if (is_scalar($policy)) {
+            return $this->normalizeProfile($policy);
+        }
+
+        if (! is_array($policy)) {
+            return null;
+        }
+
+        return $this->isProfileDefinition($policy)
+            ? $this->normalizeProfile($policy)
+            : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $policy
+     */
+    protected function isProfileDefinition(array $policy): bool
+    {
+        $profileKeys = [
+            'name',
+            'include_actor',
+            'include_subject',
+            'include_references',
+            'include_payload',
+            'include_metadata',
+            'redact_actor_keys',
+            'redact_subject_keys',
+            'redact_payload_keys',
+            'redact_metadata_keys',
+        ];
+
+        return count(array_intersect(array_keys($policy), $profileKeys)) > 0;
     }
 
     protected function normalizeProfile(mixed $definition): JournalVisibilityProfileData
