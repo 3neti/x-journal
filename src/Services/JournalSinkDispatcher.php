@@ -10,36 +10,84 @@ use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 class JournalSinkDispatcher implements JournalSinkContract
 {
     /**
-     * @param  array<int, SecondaryJournalSinkContract>  $secondarySinks
+     * @param  array<string, SecondaryJournalSinkContract>  $secondarySinks
      */
     public function __construct(
         protected DatabaseJournalSink $canonicalSink,
         protected array $secondarySinks = [],
     ) {}
 
-    public function addSecondarySink(SecondaryJournalSinkContract $sink): self
+    public function addSecondarySink(SecondaryJournalSinkContract $sink, ?string $name = null): self
     {
-        $this->secondarySinks[] = $sink;
+        $this->secondarySinks[$name ?? $this->nextSecondaryName($sink)] = $sink;
 
         return $this;
     }
 
     /**
-     * @return array<int, SecondaryJournalSinkContract>
+     * @return array<string, SecondaryJournalSinkContract>
      */
     public function secondarySinks(): array
     {
         return $this->secondarySinks;
     }
 
+    public function hasSecondarySink(string $name): bool
+    {
+        return array_key_exists($name, $this->secondarySinks);
+    }
+
     public function record(ExecutionJournalEntryData $entry): ExecutionJournalEntry
+    {
+        return $this->recordWithSinkSelection($entry);
+    }
+
+    /**
+     * @param  array<int, string>|null  $selectedSinks
+     */
+    public function recordWithSinkSelection(ExecutionJournalEntryData $entry, ?array $selectedSinks = null): ExecutionJournalEntry
     {
         $canonicalEntry = $this->canonicalSink->record($entry);
 
-        foreach ($this->secondarySinks as $secondarySink) {
+        $sinksToDispatch = $selectedSinks === null
+            ? $this->secondarySinks
+            : $this->selectedSecondarySinks($selectedSinks);
+
+        foreach ($sinksToDispatch as $secondarySink) {
             $secondarySink->recordProjection($canonicalEntry, $entry);
         }
 
         return $canonicalEntry;
+    }
+
+    /**
+     * @param  array<int, string>  $selectedSinks
+     * @return array<string, SecondaryJournalSinkContract>
+     */
+    protected function selectedSecondarySinks(array $selectedSinks): array
+    {
+        $targets = [];
+
+        foreach ($selectedSinks as $name) {
+            if (is_string($name) && isset($this->secondarySinks[$name])) {
+                $targets[$name] = $this->secondarySinks[$name];
+            }
+        }
+
+        return $targets;
+    }
+
+    protected function nextSecondaryName(SecondaryJournalSinkContract $sink): string
+    {
+        $base = class_basename($sink);
+        $name = $base;
+
+        $index = 1;
+        while (array_key_exists($name, $this->secondarySinks)) {
+            $index++;
+            $name = $base.'#'.$index;
+        }
+
+        return $name;
     }
 }

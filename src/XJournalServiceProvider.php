@@ -8,6 +8,7 @@ use LBHurtado\XJournal\Services\CampaignJournalRecorder;
 use LBHurtado\XJournal\Services\CockpitJournalReader;
 use LBHurtado\XJournal\Services\DatabaseJournalSink;
 use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
+use LBHurtado\XJournal\Services\ExecutionJournalIdempotencyHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 use LBHurtado\XJournal\Services\JournalEntryRetriever;
@@ -16,10 +17,12 @@ use LBHurtado\XJournal\Services\JournalEventRecorder;
 use LBHurtado\XJournal\Services\JournalEventTransformerRegistry;
 use LBHurtado\XJournal\Services\JournalIntegrityVerifier;
 use LBHurtado\XJournal\Services\JournalSinkDispatcher;
+use LBHurtado\XJournal\Services\MonologJournalSink;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
 use LBHurtado\XJournal\Services\OperatorActionJournalRecorder;
 use LBHurtado\XJournal\Services\ProviderCallbackJournalRecorder;
 use LBHurtado\XJournal\Services\ReconciliationJournalRecorder;
+use LBHurtado\XJournal\Services\NullJournalSink;
 use LBHurtado\XJournal\Services\XChangeExecutionJournalRecorder;
 use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
@@ -30,6 +33,7 @@ use LBHurtado\XJournal\Transformers\ExecutionResultJournalTransformer;
 use LBHurtado\XJournal\Transformers\OperatorActionJournalTransformer;
 use LBHurtado\XJournal\Transformers\ProviderCallbackJournalTransformer;
 use LBHurtado\XJournal\Transformers\ReconciliationJournalTransformer;
+use Illuminate\Support\Arr;
 
 class XJournalServiceProvider extends ServiceProvider
 {
@@ -41,12 +45,32 @@ class XJournalServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(ExecutionJournalIntegrityHasher::class);
+        $this->app->singleton(ExecutionJournalIdempotencyHasher::class);
         $this->app->singleton(JournalIntegrityVerifier::class);
         $this->app->singleton(ExecutionReferenceNumberGenerator::class);
         $this->app->singleton(JournalEntryRetriever::class);
         $this->app->singleton(CockpitJournalReader::class);
         $this->app->singleton(DatabaseJournalSink::class);
-        $this->app->singleton(JournalSinkDispatcher::class);
+        $this->app->singleton(MonologJournalSink::class, function (): MonologJournalSink {
+            return new MonologJournalSink(
+                channel: (string) Arr::get(config('x-journal.sinks.monolog'), 'channel', 'default'),
+                message: (string) Arr::get(config('x-journal.sinks.monolog'), 'message', 'execution.journal.recorded'),
+            );
+        });
+        $this->app->singleton(NullJournalSink::class);
+        $this->app->singleton(JournalSinkDispatcher::class, function (): JournalSinkDispatcher {
+            $dispatcher = new JournalSinkDispatcher(app(DatabaseJournalSink::class));
+
+            if ((bool) Arr::get(config('x-journal.sinks.monolog'), 'enabled', false)) {
+                $dispatcher->addSecondarySink(app(MonologJournalSink::class), 'monolog');
+            }
+
+            if ((bool) Arr::get(config('x-journal.sinks.null'), 'enabled', false)) {
+                $dispatcher->addSecondarySink(app(NullJournalSink::class), 'null');
+            }
+
+            return $dispatcher;
+        });
         $this->app->singleton(JournalSinkContract::class, JournalSinkDispatcher::class);
         $this->app->singleton(ExecutionJournalRecorder::class);
         $this->app->singleton(XChangeExecutionJournalRecorder::class);

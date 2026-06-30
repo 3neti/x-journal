@@ -120,6 +120,7 @@ it('normalizes journal entry data to the canonical shape', function () {
             'external_reference' => null,
             'metadata' => [],
         ],
+        'idempotency_key' => null,
         'payload' => ['status' => 'succeeded'],
         'integrity' => [
             'hash' => null,

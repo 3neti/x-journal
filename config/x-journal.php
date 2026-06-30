@@ -17,4 +17,19 @@ return [
         'prefix' => 'ERN',
         'digits' => 9,
     ],
+
+    'idempotency' => [
+        'enabled' => true,
+    ],
+
+    'sinks' => [
+        'monolog' => [
+            'enabled' => false,
+            'channel' => 'default',
+            'message' => 'execution.journal.recorded',
+        ],
+        'null' => [
+            'enabled' => false,
+        ],
+    ],
 ];

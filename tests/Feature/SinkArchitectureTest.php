@@ -10,7 +10,11 @@ use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\JournalSinkDispatcher;
+use LBHurtado\XJournal\Services\DatabaseJournalSink;
+use LBHurtado\XJournal\Services\MonologJournalSink;
+use LBHurtado\XJournal\Services\NullJournalSink;
 use Carbon\CarbonImmutable;
+use Psr\Log\AbstractLogger;
 
 function sinkJournalEntryData(?string $referenceNumber = null): ExecutionJournalEntryData
 {
@@ -99,3 +103,86 @@ it('allows multiple secondary sinks to receive the same canonical entry', functi
         ->and($first->data?->referenceNumber)->toBe('ERN-2026-000000001')
         ->and($second->data?->referenceNumber)->toBe('ERN-2026-000000001');
 });
+
+it('supports explicit sink selection for secondary dispatch', function () {
+    $selected = new RecordingSecondaryJournalSink;
+    $unselected = new RecordingSecondaryJournalSink;
+
+    $dispatcher = new JournalSinkDispatcher(app(DatabaseJournalSink::class), [
+        'selected' => $selected,
+        'unselected' => $unselected,
+    ]);
+
+    expect($dispatcher->secondarySinks())->toHaveKeys(['selected', 'unselected'])
+        ->and($dispatcher->recordWithSinkSelection(sinkJournalEntryData('ERN-2026-000000010'), ['selected']))->toBeInstanceOf(ExecutionJournalEntry::class)
+        ->and($selected->calls)->toBe(1)
+        ->and($unselected->calls)->toBe(0)
+        ->and(ExecutionJournalEntry::query()->count())->toBe(1);
+});
+
+it('supports optional null sink dispatch without side effects', function () {
+    $dispatcher = new JournalSinkDispatcher(app(DatabaseJournalSink::class), [
+        'null' => new NullJournalSink,
+    ]);
+
+    $entry = $dispatcher->recordWithSinkSelection(sinkJournalEntryData('ERN-2026-000000011'), ['null']);
+
+    expect($entry)->toBeInstanceOf(ExecutionJournalEntry::class)
+        ->and(ExecutionJournalEntry::query()->count())->toBe(1)
+        ->and($entry->exists)->toBeTrue();
+});
+
+it('supports monolog-style projection sinks', function () {
+    $logger = new RecordingLogger;
+    $dispatcher = new JournalSinkDispatcher(app(DatabaseJournalSink::class), [
+        'monolog' => new MonologJournalSink(
+            channel: 'default',
+            logger: $logger,
+            message: 'execution.journal.recorded.test',
+        ),
+    ]);
+
+    $dispatcher->recordWithSinkSelection(sinkJournalEntryData('ERN-2026-000000012'), ['monolog']);
+
+    expect($logger->messages)->toHaveCount(1)
+        ->and($logger->messages[0]['message'])->toBe('execution.journal.recorded.test')
+        ->and($logger->messages[0]['context']['ern'])->toBe('ERN-2026-000000012')
+        ->and($logger->messages[0]['context']['event_type'])->toBe('voucher.redeemed');
+});
+
+it('keeps canonical persistence when selected sinks are unknown', function () {
+    $dispatcher = new JournalSinkDispatcher(app(DatabaseJournalSink::class), [
+        'null' => new NullJournalSink,
+    ]);
+
+    $entry = $dispatcher->recordWithSinkSelection(sinkJournalEntryData('ERN-2026-000000013'), ['missing']);
+
+    expect(ExecutionJournalEntry::query()->count())->toBe(1)
+        ->and($entry->exists)->toBeTrue();
+});
+
+it('reads sink enablement from config when materializing the dispatcher', function () {
+    config()->set('x-journal.sinks.monolog.enabled', true);
+
+    app()->forgetInstance(JournalSinkDispatcher::class);
+    $dispatcher = app(JournalSinkDispatcher::class);
+
+    expect($dispatcher->hasSecondarySink('monolog'))->toBeTrue();
+
+    config()->set('x-journal.sinks.monolog.enabled', false);
+    app()->forgetInstance(JournalSinkDispatcher::class);
+});
+
+class RecordingLogger extends AbstractLogger
+{
+    public array $messages = [];
+
+    public function log(mixed $level, mixed $message, array $context = []): void
+    {
+        $this->messages[] = [
+            'level' => $level,
+            'message' => (string) $message,
+            'context' => $context,
+        ];
+    }
+}

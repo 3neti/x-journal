@@ -12,6 +12,7 @@ class DatabaseJournalSink implements JournalSinkContract
 {
     public function __construct(
         protected ExecutionJournalIntegrityHasher $integrityHasher,
+        protected ExecutionJournalIdempotencyHasher $idempotencyHasher,
     ) {}
 
     public function record(ExecutionJournalEntryData $entry): ExecutionJournalEntry
@@ -42,6 +43,10 @@ class DatabaseJournalSink implements JournalSinkContract
             'payload' => $entry->payload,
             'integrity' => $integrity,
             'metadata' => $entry->metadata,
+            'idempotency_key' => $entry->idempotencyKey,
+            'idempotency_fingerprint' => $entry->idempotencyKey !== null
+                ? $this->idempotencyHasher->fingerprint($entry)
+                : null,
         ]);
     }
 }
