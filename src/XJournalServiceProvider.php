@@ -10,6 +10,7 @@ use LBHurtado\XJournal\Services\DatabaseJournalSink;
 use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalIdempotencyHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
+use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
@@ -23,6 +24,7 @@ use LBHurtado\XJournal\Services\JournalSinkDispatcher;
 use LBHurtado\XJournal\Services\MonologJournalSink;
 use LBHurtado\XJournal\Services\CockpitJournalEntryPresenter;
 use LBHurtado\XJournal\Services\DefaultJournalIntegrityVerificationMetadataProvider;
+use LBHurtado\XJournal\Services\DefaultJournalIdempotencyKeyResolver;
 use LBHurtado\XJournal\Services\DefaultJournalVisibilityProfileResolver;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
 use LBHurtado\XJournal\Services\NullJournalVisibilityAccessReasonLogger;
@@ -96,6 +98,7 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(ExecutionStatementSnapshotRetriever::class);
         $this->app->singleton(JournalVisibilityAccessReasonLoggerContract::class, NullJournalVisibilityAccessReasonLogger::class);
         $this->app->singleton(JournalVisibilityProfileResolverContract::class, DefaultJournalVisibilityProfileResolver::class);
+        $this->app->singleton(JournalIdempotencyKeyResolverContract::class, DefaultJournalIdempotencyKeyResolver::class);
         $this->app->singleton(JournalVisibilityGate::class, function (): JournalVisibilityGate {
             return (new JournalVisibilityGate([], app(JournalVisibilityAccessReasonLoggerContract::class)))
                 ->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);

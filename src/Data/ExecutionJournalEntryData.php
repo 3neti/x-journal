@@ -63,6 +63,23 @@ final class ExecutionJournalEntryData extends Data
         );
     }
 
+    public function withIdempotencyKey(?string $idempotencyKey): self
+    {
+        return new self(
+            eventType: $this->eventType,
+            occurredAt: $this->occurredAt,
+            actor: $this->actor,
+            subject: $this->subject,
+            references: $this->references,
+            idempotencyKey: $idempotencyKey,
+            payload: $this->payload,
+            money: $this->money,
+            integrity: $this->integrity,
+            metadata: $this->metadata,
+            referenceNumber: $this->referenceNumber,
+        );
+    }
+
     /**
      * @return array{
      *     reference_number: ?string,

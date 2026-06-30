@@ -8,7 +8,11 @@ use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionMoneyData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
+use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
+use LBHurtado\XJournal\Services\ExecutionJournalIdempotencyHasher;
+use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
+use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 
 function idempotentJournalEntryData(
     ?string $referenceNumber = null,
@@ -65,4 +69,45 @@ it('uses explicit references consistently with existing idempotency keys', funct
     expect(ExecutionJournalEntry::query()->count())->toBe(1)
         ->and($replayed->id)->toBe($existing->id)
         ->and($replayed->reference_number)->toBe('ERN-2026-000000123');
+});
+
+it('supports scoped idempotency keys through a configurable resolver', function () {
+    $resolver = new class implements JournalIdempotencyKeyResolverContract {
+        public function resolve(?string $idempotencyKey, ExecutionJournalEntryData $entry): ?string
+        {
+            if ($idempotencyKey === null) {
+                return null;
+            }
+
+            $tenant = $entry->metadata['tenant_id'] ?? 'tenant-unknown';
+
+            return $tenant.'|'.$idempotencyKey;
+        }
+    };
+
+    $recorder = new ExecutionJournalRecorder(
+        app(JournalSinkContract::class),
+        app(ExecutionReferenceNumberGenerator::class),
+        app(ExecutionJournalIdempotencyHasher::class),
+        $resolver,
+    );
+
+    $tenantAEntry = $recorder->record(idempotentJournalEntryData(
+        idempotencyKey: 'idemp-scoped-1',
+        overrides: ['metadata' => ['tenant_id' => 'tenant-a']]
+    ));
+    $tenantBEntry = $recorder->record(idempotentJournalEntryData(
+        idempotencyKey: 'idemp-scoped-1',
+        overrides: ['metadata' => ['tenant_id' => 'tenant-b']]
+    ));
+    $tenantAReplay = $recorder->record(idempotentJournalEntryData(
+        idempotencyKey: 'idemp-scoped-1',
+        overrides: ['metadata' => ['tenant_id' => 'tenant-a']]
+    ));
+
+    expect(ExecutionJournalEntry::query()->count())->toBe(2)
+        ->and($tenantAEntry->id)->toBe($tenantAReplay->id)
+        ->and($tenantBEntry->id)->not->toBe($tenantAEntry->id)
+        ->and($tenantAEntry->idempotency_key)->toBe('tenant-a|idemp-scoped-1')
+        ->and($tenantBEntry->idempotency_key)->toBe('tenant-b|idemp-scoped-1');
 });
