@@ -255,6 +255,63 @@ it('does not execute operator actions or mutate journal entries while reading fo
         ->and($entry->fresh()?->toArray())->toBe($before);
 });
 
+it('applies pagination after visibility filtering', function () {
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-1');
+    cockpitJournalEntry(subjectId: 'claim-hidden-1', subjectType: 'claim', executionId: 'exec-visibility-1');
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-1');
+    cockpitJournalEntry(subjectId: 'claim-hidden-2', subjectType: 'claim', executionId: 'exec-visibility-1');
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-1');
+
+    $view = app(CockpitJournalReader::class)->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'claim-1',
+            'type' => 'claim',
+        ],
+        'query' => [
+            'execution_id' => 'exec-visibility-1',
+            'subject_type' => 'claim',
+            'limit' => 2,
+            'order' => 'asc',
+        ],
+    ]));
+
+    expect($view->retrievedTotal)->toBe(5)
+        ->and($view->visibleTotal)->toBe(2)
+        ->and($view->hasMore)->toBeTrue()
+        ->and($view->entries->pluck('subject')->map(fn (array $subject) => $subject['id'])->all())->toBe([
+            'claim-1',
+            'claim-1',
+        ]);
+});
+
+it('supports visible pagination offsets independently from raw result windows', function () {
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-2');
+    cockpitJournalEntry(subjectId: 'claim-hidden-1', subjectType: 'claim', executionId: 'exec-visibility-2');
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-2');
+    cockpitJournalEntry(subjectId: 'claim-hidden-2', subjectType: 'claim', executionId: 'exec-visibility-2');
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-2');
+
+    $secondPage = app(CockpitJournalReader::class)->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'claim-1',
+            'type' => 'claim',
+        ],
+        'query' => [
+            'execution_id' => 'exec-visibility-2',
+            'subject_type' => 'claim',
+            'limit' => 1,
+            'offset' => 1,
+            'order' => 'asc',
+        ],
+    ]));
+
+    expect($secondPage->retrievedTotal)->toBe(5)
+        ->and($secondPage->visibleTotal)->toBe(1)
+        ->and($secondPage->hasMore)->toBeTrue()
+        ->and($secondPage->entries->first()?->subject['id'])->toBe('claim-1')
+        ->and($secondPage->entries)->toHaveCount(1);
+});
+
 it('supports visibility profiles and redacts cockpit entry payloads for summary views', function () {
     cockpitJournalEntry(
         eventType: 'execution.result.recorded',

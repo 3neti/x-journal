@@ -5,6 +5,7 @@ namespace LBHurtado\XJournal\Services;
 use LBHurtado\XJournal\Data\CockpitJournalEntryData;
 use LBHurtado\XJournal\Data\CockpitJournalQueryData;
 use LBHurtado\XJournal\Data\CockpitJournalViewData;
+use LBHurtado\XJournal\Data\JournalRetrievalQueryData;
 use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
@@ -20,35 +21,82 @@ class CockpitJournalReader
 
     public function read(CockpitJournalQueryData $query): CockpitJournalViewData
     {
-        $result = $this->entries->search($query->query);
+        $limit = $query->query->limit;
+        $offset = $query->query->offset;
+        $visibleWindowStart = $offset;
+        $visibleWindowEnd = $offset + $limit;
+        $visibleIndex = 0;
+        $hasMore = false;
+        $scannedOffset = 0;
+        $scanLimit = max(100, $limit * 3);
+        $total = 0;
+        $visibleEntries = collect();
+        $finished = false;
 
-        $visibleEntries = $result->entries
-            ->map(function (ExecutionJournalEntry $entry) use ($query): ?CockpitJournalEntryData {
+        while (! $finished) {
+            $scanQuery = new JournalRetrievalQueryData(
+                referenceNumber: $query->query->referenceNumber,
+                actorType: $query->query->actorType,
+                actorId: $query->query->actorId,
+                subjectType: $query->query->subjectType,
+                subjectId: $query->query->subjectId,
+                correlationId: $query->query->correlationId,
+                causationId: $query->query->causationId,
+                executionId: $query->query->executionId,
+                eventType: $query->query->eventType,
+                limit: $scanLimit,
+                offset: $scannedOffset,
+                order: $query->query->order,
+            );
+
+            $result = $this->entries->search($scanQuery);
+            $total = $result->total;
+            $scannedOffset += $scanLimit;
+
+            foreach ($result->entries as $entry) {
                 $decision = $this->visibility->decide($entry, $query->actor);
 
                 if (! $decision->allowed) {
-                    return null;
+                    continue;
                 }
 
-                $profile = $this->profileResolver->resolve(
-                    $entry,
-                    $query->actor,
-                    $decision,
-                    $query->visibilityProfile,
-                );
+                if ($visibleIndex >= $visibleWindowStart && $visibleIndex < $visibleWindowEnd) {
+                    $profile = $this->profileResolver->resolve(
+                        $entry,
+                        $query->actor,
+                        $decision,
+                        $query->visibilityProfile,
+                    );
 
-                return $this->presenter->present($entry, $query->actor, $decision, $profile);
-            })
-            ->filter()
-            ->values();
+                    $visibleEntries->push($this->presenter->present(
+                        $entry,
+                        $query->actor,
+                        $decision,
+                        $profile,
+                    ));
+                }
+
+                $visibleIndex++;
+
+                if ($visibleIndex > $visibleWindowEnd) {
+                    $hasMore = true;
+                    $finished = true;
+                    break;
+                }
+            }
+
+            if (! $finished && (count($result->entries) < $scanLimit || $scannedOffset > $total)) {
+                $finished = true;
+            }
+        }
 
         return new CockpitJournalViewData(
             entries: $visibleEntries,
-            retrievedTotal: $result->total,
+            retrievedTotal: $total,
             visibleTotal: $visibleEntries->count(),
-            limit: $result->limit,
-            offset: $result->offset,
-            hasMore: $result->hasMore(),
+            limit: $limit,
+            offset: $offset,
+            hasMore: $hasMore,
             context: $query->context,
             metadata: $query->metadata,
         );
