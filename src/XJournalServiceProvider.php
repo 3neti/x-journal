@@ -11,6 +11,8 @@ use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalIdempotencyHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
 use LBHurtado\XJournal\Services\JournalEntryRetriever;
 use LBHurtado\XJournal\Services\JournalArtifactGenerator;
 use LBHurtado\XJournal\Services\JournalEventRecorder;
@@ -80,6 +82,8 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(ReconciliationJournalRecorder::class);
         $this->app->singleton(OperatorActionJournalRecorder::class);
         $this->app->singleton(CampaignJournalRecorder::class);
+        $this->app->singleton(ExecutionStatementSnapshotHasher::class);
+        $this->app->singleton(ExecutionStatementSnapshotGenerator::class);
         $this->app->singleton(JournalVisibilityGate::class, function (): JournalVisibilityGate {
             return (new JournalVisibilityGate)
                 ->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);
