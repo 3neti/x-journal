@@ -2,13 +2,17 @@
 
 use Carbon\CarbonImmutable;
 use LBHurtado\XJournal\Data\CockpitJournalQueryData;
+use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Data\OperatorActionData;
+use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Services\CockpitJournalReader;
+use LBHurtado\XJournal\Services\JournalEntryRetriever;
+use LBHurtado\XJournal\Services\JournalVisibilityGate;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\OperatorActionJournalRecorder;
 
@@ -100,6 +104,18 @@ it('normalizes cockpit journal queries for operator views', function () {
             'source' => 'cockpit',
             'integration' => 'cockpit.journal',
             'request_id' => 'cockpit-request-1',
+        ],
+        'visibility_profile' => [
+            'name' => 'raw',
+            'include_actor' => true,
+            'include_subject' => true,
+            'include_references' => true,
+            'include_payload' => true,
+            'include_metadata' => true,
+            'redact_actor_keys' => [],
+            'redact_subject_keys' => [],
+            'redact_payload_keys' => [],
+            'redact_metadata_keys' => [],
         ],
     ]);
 });
@@ -236,4 +252,114 @@ it('does not execute operator actions or mutate journal entries while reading fo
         ->and($view->entries->first()?->metadata)->not->toHaveKey('money_moved')
         ->and(ExecutionJournalEntry::query()->count())->toBe(1)
         ->and($entry->fresh()?->toArray())->toBe($before);
+});
+
+it('supports visibility profiles and redacts cockpit entry payloads for summary views', function () {
+    cockpitJournalEntry(
+        eventType: 'execution.result.recorded',
+        actorId: 'operator-1',
+        actorType: 'system',
+        subjectId: 'voucher-1',
+        subjectType: 'voucher',
+        executionId: 'exec-summary-1',
+    );
+
+    $view = app(CockpitJournalReader::class)->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'operator-1',
+            'type' => 'system',
+            'permissions' => ['x-journal.view'],
+        ],
+        'query' => [
+            'execution_id' => 'exec-summary-1',
+        ],
+        'visibility_profile' => [
+            'name' => 'summary',
+        ],
+    ]));
+
+    expect($view->visibleTotal)->toBe(1)
+        ->and($view->entries->first()?->actor)->toBe([
+            'id' => 'operator-1',
+            'type' => 'system',
+            'metadata' => [],
+        ])
+        ->and($view->entries->first()?->subject)->toBe([
+            'id' => 'voucher-1',
+            'type' => 'voucher',
+            'metadata' => [],
+        ])
+        ->and($view->entries->first()?->payload)->toBe([])
+        ->and($view->entries->first()?->metadata)->toBe([]);
+});
+
+it('supports redacted visibility profiles with configurable field suppression', function () {
+    cockpitJournalEntry(
+        eventType: 'execution.result.recorded',
+        actorId: 'operator-1',
+        actorType: 'system',
+        subjectId: 'voucher-2',
+        subjectType: 'voucher',
+        executionId: 'exec-redacted-1',
+    );
+
+    $view = app(CockpitJournalReader::class)->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'operator-1',
+            'type' => 'system',
+            'permissions' => ['x-journal.view'],
+        ],
+        'query' => [
+            'execution_id' => 'exec-redacted-1',
+        ],
+        'visibility_profile' => [
+            'name' => 'redacted',
+            'redact_payload_keys' => ['status'],
+            'redact_metadata_keys' => ['source'],
+        ],
+    ]));
+
+    expect($view->visibleTotal)->toBe(1)
+        ->and($view->entries->first()?->payload)->toBe([])
+        ->and($view->entries->first()?->metadata)->toBe([]);
+});
+
+it('allows package consumers to override cockpit visibility presentation contract', function () {
+    cockpitJournalEntry(
+        eventType: 'execution.result.recorded',
+        executionId: 'exec-contract-1',
+    );
+
+    $reader = new CockpitJournalReader(
+        app(JournalEntryRetriever::class),
+        app(JournalVisibilityGate::class),
+        new class implements JournalCockpitEntryPresentationContract
+        {
+            public function present(
+                \LBHurtado\XJournal\Models\ExecutionJournalEntry $entry,
+                \LBHurtado\XJournal\Data\JournalAccessActorData $actor,
+                \LBHurtado\XJournal\Data\JournalAccessDecisionData $decision,
+                JournalVisibilityProfileData $profile,
+            ): \LBHurtado\XJournal\Data\CockpitJournalEntryData {
+                return \LBHurtado\XJournal\Data\CockpitJournalEntryData::fromEntryWithProfile(
+                    $entry,
+                    $decision,
+                    JournalVisibilityProfileData::fromArray(['name' => 'summary'])
+                );
+            }
+        }
+    );
+
+    $view = $reader->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'operator-1',
+            'type' => 'system',
+            'permissions' => ['x-journal.view'],
+        ],
+        'query' => [
+            'execution_id' => 'exec-contract-1',
+        ],
+    ]));
+
+    expect($view->entries->first()?->payload)->toBe([]);
 });

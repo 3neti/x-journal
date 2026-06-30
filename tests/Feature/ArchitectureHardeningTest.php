@@ -9,6 +9,7 @@ use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Data\JournalEventData;
 use LBHurtado\XJournal\Data\JournalAccessActorData;
 use LBHurtado\XJournal\Data\JournalRetrievalQueryData;
+use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
 use LBHurtado\XJournal\Exceptions\JournalEntryImmutableException;
 use LBHurtado\XJournal\Exceptions\JournalEventTransformerNotFoundException;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
@@ -134,6 +135,7 @@ it('characterizes cockpit visibility filtering as post-retrieval windowing', fun
             'type' => 'operator',
         ]),
         query: new JournalRetrievalQueryData(limit: 2),
+        visibilityProfile: JournalVisibilityProfileData::fromArray([]),
     ));
 
     expect($view->retrievedTotal)->toBe(2)

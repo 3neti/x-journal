@@ -4,6 +4,7 @@ namespace LBHurtado\XJournal\Data;
 
 use Carbon\CarbonInterface;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
 use Spatie\LaravelData\Data;
 
 final class CockpitJournalEntryData extends Data
@@ -38,6 +39,24 @@ final class CockpitJournalEntryData extends Data
             references: $entry->references ?? [],
             payload: $entry->payload ?? [],
             metadata: $entry->metadata ?? [],
+            visibilityReason: $decision->reason,
+        );
+    }
+
+    public static function fromEntryWithProfile(
+        ExecutionJournalEntry $entry,
+        JournalAccessDecisionData $decision,
+        JournalVisibilityProfileData $profile,
+    ): self {
+        return new self(
+            referenceNumber: $entry->reference_number,
+            eventType: $entry->event_type,
+            occurredAt: $entry->occurred_at,
+            actor: $profile->projectActor($entry->actor ?? []),
+            subject: $profile->projectSubject($entry->subject ?? []),
+            references: $profile->projectReferences($entry->references ?? []),
+            payload: $profile->projectPayload($entry->payload ?? []),
+            metadata: $profile->projectMetadata($entry->metadata ?? []),
             visibilityReason: $decision->reason,
         );
     }

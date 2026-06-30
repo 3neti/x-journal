@@ -43,6 +43,11 @@ it('verifies a clean journal hash chain', function () {
     expect($verification)->toBeInstanceOf(JournalIntegrityVerificationData::class)
         ->and($verification->verified)->toBeTrue()
         ->and($verification->checkedEntryCount)->toBe(2)
+        ->and($verification->metadata['checked_entry_count'])->toBe(2)
+        ->and($verification->metadata['issue_count'])->toBe(0)
+        ->and($verification->metadata['issue_codes'])->toBe([])
+        ->and($verification->metadata['first_reference_number'])->toBe('ERN-2026-000000001')
+        ->and($verification->metadata['last_reference_number'])->toBe('ERN-2026-000000002')
         ->and($verification->issues)->toBe([]);
 });
 
@@ -57,6 +62,8 @@ it('detects canonical payload tampering', function () {
 
     expect($verification->verified)->toBeFalse()
         ->and($verification->checkedEntryCount)->toBe(1)
+        ->and($verification->metadata['issue_count'])->toBe(1)
+        ->and($verification->metadata['issue_codes'])->toContain('hash_mismatch')
         ->and($verification->issues)->toHaveCount(1)
         ->and($verification->issues[0]->code)->toBe('hash_mismatch')
         ->and($verification->issues[0]->referenceNumber)->toBe('ERN-2026-000000001');

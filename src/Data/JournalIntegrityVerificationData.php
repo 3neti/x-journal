@@ -13,10 +13,11 @@ final class JournalIntegrityVerificationData extends Data
         public bool $verified,
         public int $checkedEntryCount,
         public array $issues = [],
+        public array $metadata = [],
     ) {}
 
     /**
-     * @return array{verified: bool, checked_entry_count: int, issues: array<int, array<string, mixed>>}
+     * @return array{verified: bool, checked_entry_count: int, issues: array<int, array<string, mixed>>, metadata: array<string, mixed>}
      */
     public function toArray(): array
     {
@@ -27,6 +28,7 @@ final class JournalIntegrityVerificationData extends Data
                 fn (JournalIntegrityIssueData $issue): array => $issue->toArray(),
                 $this->issues,
             ),
+            'metadata' => $this->metadata,
         ];
     }
 }

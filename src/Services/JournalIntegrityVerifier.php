@@ -6,12 +6,14 @@ use Illuminate\Support\Collection;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\JournalIntegrityIssueData;
 use LBHurtado\XJournal\Data\JournalIntegrityVerificationData;
+use LBHurtado\XJournal\Contracts\JournalIntegrityVerificationMetadataContract;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 
 class JournalIntegrityVerifier
 {
     public function __construct(
         protected ExecutionJournalIntegrityHasher $integrityHasher,
+        protected JournalIntegrityVerificationMetadataContract $metadata,
     ) {}
 
     /**
@@ -84,6 +86,7 @@ class JournalIntegrityVerifier
             verified: $issues === [],
             checkedEntryCount: $collection->count(),
             issues: $issues,
+            metadata: $this->metadata->collect($collection, $issues),
         );
     }
 

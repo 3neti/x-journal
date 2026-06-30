@@ -6,12 +6,14 @@ use LBHurtado\XJournal\Data\CockpitJournalEntryData;
 use LBHurtado\XJournal\Data\CockpitJournalQueryData;
 use LBHurtado\XJournal\Data\CockpitJournalViewData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
 
 class CockpitJournalReader
 {
     public function __construct(
         protected JournalEntryRetriever $entries,
         protected JournalVisibilityGate $visibility,
+        protected JournalCockpitEntryPresentationContract $presenter,
     ) {}
 
     public function read(CockpitJournalQueryData $query): CockpitJournalViewData
@@ -26,7 +28,7 @@ class CockpitJournalReader
                     return null;
                 }
 
-                return CockpitJournalEntryData::fromEntry($entry, $decision);
+                return $this->presenter->present($entry, $query->actor, $decision, $query->visibilityProfile);
             })
             ->filter()
             ->values();
