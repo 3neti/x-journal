@@ -10,8 +10,8 @@ The package records what happened across execution, claims, authorization, settl
 
 Current wave: Wave 2A — x-journal  
 Current slice: Phase 15 — Production Readiness  
-Status: Complete  
-Last updated: 2026-06-29
+Status: Complete (scaffolded)
+Last updated: 2026-06-30
 
 ## Phase Progress
 
@@ -33,6 +33,26 @@ Last updated: 2026-06-29
 | 13 | Cockpit integration | Complete |
 | 14 | Hardening | Complete |
 | 15 | Production readiness | Complete |
+
+## Internal V1 Completion Compass
+
+This compass maps the functional specification into bounded, package-local slices that do not require `x-change` integration.
+
+| Slice | Current State | Internal Outcome | Evidence in Package | Gap to Close |
+|---|---|---|---|---|
+| Capture | Partial (in progress) | Entry-level idempotent key replay is implemented (`ExecutionJournalRecorder` + DB checksum) | `ExecutionJournalRecorder`, `ExecutionJournalIdempotencyHasher`, `execution_journal_entries.idempotency_key`, conflict exception | Full key strategy and policy-level tenant scoping are still pending |
+| Normalize | Partial | Event/event-transformer normalization is implemented for execution, claim, provider callback, reconciliation, operator, campaign domains | `JournalEventData`, transformer registry, recorder tests | Artifact-type taxonomies and some transform targets (`certificate`, `instrument`, timeline-oriented transforms) are still pending |
+| Persist | Mostly complete | Canonical DB storage with immutable model, counter-backed ERN, hash-chain integrity, scalar projections | `execution_journal_entries`, `ExecutionJournalIntegrityHasher`, `JournalIntegrityVerifier` | No database-level immutability guarantees, sink lifecycle controls, or archival write policy in baseline |
+| Govern | Partial | Actor/subject visibility and policy seam exist | `JournalVisibilityGate`, `JournalVisibilityPolicyContract`, cockpit integration | No profile matrix, role mapping, redaction/presentation matrix, or access-reason logging contracts |
+| Render | Partial | In-memory artifact rendering exists for text + machine profiles across statement/certificate/instrument/timeline | `JournalArtifactGenerator`, receipt/statement/supplemental renderers | No HTML/Markdown/PDF baseline renderers; no public verification rendering |
+| Verify | Partial | Deterministic hash-chain verification and continuity checks are implemented | `JournalIntegrityVerifier`, integrity data | No signature policy, verification profiles/levels, or token/URL-based verification contract |
+| Recover | Deferred | No statement snapshot primitives yet | none | Statement snapshot model, anchoring tables, and snapshot generation services are not present |
+
+### Slice Execution Rule
+
+- Keep canonical persistence semantics unchanged while adding any missing slice capability.
+- Preserve backward compatibility with current contracts (`JournalEventRecorder`, `JournalArtifactRendererContract`, `JournalSinkContract`, visibility gate, retrieval API).
+- Defer `x-change` and other host-package call-site wiring to integration slices; this compass covers only package-internal evidence capabilities.
 
 ## Completed Work
 
@@ -241,26 +261,26 @@ Last updated: 2026-06-29
 - Retrieval services can expose sensitive journal entries if host packages do not compose them with visibility policies before API/UI exposure.
 - Offset-based pagination is simple and deterministic for the baseline, but may need cursor pagination for large production journals.
 - Phase 8 does not yet wire live x-change execution call sites; a later slice must characterize and test those call sites before integration.
-- Duplicate journal entries are possible if a host calls the execution integration adapter repeatedly for the same execution result; idempotency remains unresolved.
+- Duplicate journal entries from host retries are reduced only when callers provide the same idempotency key for the same normalized payload; key selection strategy remains host policy.
 - The adapter records execution outcomes after execution; it must not be moved into a path that can alter execution semantics or money movement.
-- Duplicate provider callbacks are possible if a provider retries the same webhook; idempotency remains unresolved.
+- Duplicate provider callbacks are still possible unless callbacks are replayed with an explicit idempotency key and stable normalized payload.
 - Provider callback status labels are currently recorded as supplied. Host packages must not treat x-journal callback records as settlement truth without domain reconciliation.
-- Reconciliation records can duplicate if host reconciliation jobs are retried; idempotency remains unresolved.
+- Reconciliation records can duplicate if host retries do not provide a stable idempotency key strategy.
 - Reconciliation payloads may contain sensitive provider/bank file data; host APIs must pair retrieval with visibility/redaction policies before exposure.
-- Operator action records can duplicate if host applications retry the same command/audit hook; idempotency remains unresolved.
+- Operator action records can duplicate if host applications retry without stable idempotency keys.
 - Operator action records may contain sensitive operator context, reasons, IP addresses, case details, and manual review notes; host APIs must pair retrieval with visibility/redaction policies before exposure.
 - Host UIs and workflow layers must not treat an operator action journal record as proof that the action was authorized, executed, or completed unless the corresponding domain event also exists.
-- Campaign records can duplicate if host batch planners or distribution jobs retry journal recording; idempotency remains unresolved.
+- Campaign records can duplicate if host batch planners or distribution jobs retry without stable idempotency keys.
 - Campaign records may contain sensitive beneficiary-list counts, targeting criteria, program details, distribution schedules, and voucher batch identifiers; host APIs must pair retrieval with visibility/redaction policies before exposure.
 - Host campaign layers must not treat campaign journal records as voucher issuance, execution, distribution dispatch, or campaign lifecycle mutation.
 - Cockpit read models expose canonical journal payloads and may surface sensitive data; host Cockpit APIs must add redaction/presentation rules before broad operator exposure.
 - Phase 13 visibility filtering happens after the retrieval window. A page can contain fewer visible entries than the underlying query window; production Cockpit pagination may need visibility-aware cursor/windowing.
 - Cockpit read models are read-side projections only. Host Cockpit code must not treat them as command execution, action authorization, or lifecycle truth beyond the underlying journal facts.
 - Direct database writes can still bypass model-level append-only guards; database-level immutability remains outside this package baseline.
-- Idempotency remains unresolved across execution outcomes, provider callbacks, reconciliation records, operator actions, and campaign records.
+- Entry-level idempotency is implemented for canonical journal entries; host-provided key strategy remains unresolved across execution outcomes, provider callbacks, reconciliation records, operator actions, and campaign records.
 - Execution transformer metadata shape differs from later domain transformers because it lacks a `domain` key; consumers should not assume every transformed entry has `metadata.domain`.
 - Phase 15 does not make x-journal production-wired in host applications. Host integration must still be performed through package-specific characterization tests.
-- The package is release-ready as a foundation, not as a complete production audit system with idempotency, database immutability, signatures, redaction, and visibility-aware pagination resolved.
+- The package is release-ready as a foundation, with capture-idempotency now scaffolded but not yet complete across all host-provided retry semantics.
 
 ## Architectural Decisions
 
@@ -340,7 +360,15 @@ Last updated: 2026-06-29
 - Cockpit integration tests cover query normalization, read-model projection, visibility-gated retrieval, subject-visible reads, non-execution of operator actions, and non-mutating reads.
 - Architecture hardening tests cover runtime package independence, singleton infrastructure bindings, append-only invariants, supported transformer domains, unsupported-event fail-closed behavior, no persistence side effects for unsupported events, and Cockpit post-retrieval visibility windowing.
 - Production readiness tests cover release documentation, explicit deferrals, Composer metadata, Laravel auto-discovery, config publishing, and migration availability.
-- Full x-journal package suite is green: `102 passed, 496 assertions`.
+- Full x-journal package suite is green: `117 passed, 563 assertions`.
+
+## V1 Completion Plan
+
+- **Scope:** complete package-only evidentiary capabilities without requiring x-change integration changes.
+- **Planned internal additions (in order):**
+  1. Add `statement_snapshot` persistence + generator for recovery anchor hash chaining.
+  2. Introduce visibility profile/redaction contracts and public verification metadata contracts.
+- **Exit criteria:** `core coverage + new tests` for each slice, and architecture docs updated to move each row from "gap to close" to "closed."
 
 ## Next Recommended Slice
 

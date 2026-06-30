@@ -1,13 +1,17 @@
 # x-journal
 
-`x-journal` is the evidentiary journal package for the x-change Settlement Operating System.
-It stores durable evidence about execution outcomes, callbacks, reconciliation, and operator/campaign facts without executing workflows, moving money, or changing lifecycle truth.
+`x-journal` is the evidentiary execution journal package for the 3neti ecosystem.
+It stores durable business execution evidence without executing workflows, moving money, or changing lifecycle truth.
+
+The package is internal-first: it is usable independently of `3neti/x-change` at the package level while remaining consumable by host applications as their evidentiary boundary.
 
 For architectural context and Wave 2A planning status, see:
 
 - [X Journal Compass](/docs/architecture/x-journal/X_JOURNAL_COMPASS.md)
 - [Production Readiness](/docs/architecture/x-journal/PRODUCTION_READINESS.md)
 - [Production Deferrals ADR](/docs/architecture/x-journal/ADR-0001-production-deferrals.md)
+
+For package-specific completion status against functional-spec slices, see the "V1 Completion Compass" section in the package architecture document.
 
 ## Package Responsibilities
 
@@ -45,10 +49,11 @@ Publish and edit `config/x-journal.php`:
 - `connection`: database connection used for durable journal storage (`null` uses app default).
 - `reference_number.prefix`: ERN prefix, default `ERN`.
 - `reference_number.digits`: zero-padding width, default `9`.
+- `idempotency.enabled`: toggles entry-level idempotency replay checks, default `true`.
 
 Changing `reference_number.prefix` changes the generated reference format (for example `JRN-2026-000000001`).
 
-## CCore Concepts
+## Core Concepts
 
 ### Journal entries are canonical and immutable
 
@@ -69,6 +74,21 @@ All external inputs are normalized into canonical DTO shapes before persistence:
 - `JournalEventData`
 
 Each DTO normalizes types (for example coercing IDs and metadata to canonical structures).
+
+### V1 completion slices (internal package scope)
+
+The package has been implemented in a scaffolded way for Wave 2A and has full test coverage for the foundational phases.
+To align with the functional specification for a fully internal evidentiary package, the following slices are still open:
+
+- **Capture**: base idempotency key scaffolding is implemented (same key + same normalized payload returns existing entry; same key + different payload fails). Remaining policy-level retry-key strategy and tenant scoping are follow-up work.
+- **Normalize**: supported event/domain transformations exist, but some taxonomy targets from the full specification (`certificate`, `instrument`, timeline/statement workflows) are not yet added as first-class transformations.
+- **Persist**: canonical DB sink remains stable and immutable; database-level immutability, multi-sink lifecycle strategy, and archival sinks are deferred.
+- **Govern**: visibility is implemented for read access, but visibility profiles, role matrices, and redaction policies are not yet a package-wide feature set.
+- **Render**: receipt rendering plus text + JSON renderers for `statement`, `certificate`, `instrument`, and `timeline` are implemented. HTML/Markdown/PDF formats and public verification rendering remain deferred.
+- **Verify**: hash-chain verification is implemented; signatures, token-based verification levels, and public verification contracts remain deferred.
+- **Recover**: statement snapshotting and statement anchoring are not yet implemented as first-class package surfaces.
+
+The current implementation should be treated as a tested foundation, not a complete internal evidentiary platform yet.
 
 ### Event transformation
 
@@ -138,10 +158,13 @@ Cockpit reads can include visibility reasons; they still preserve canonical fact
 ### Artifact generation
 
 `JournalArtifactGenerator` renders canonical entries through registered artifact renderers.
-Built-in text profiles are available for:
+Built-in artifact profiles are available for:
 
 - `receipt` (`text/plain`)
-- `statement` (`text/plain`)
+- `statement` (`text/plain`, `application/json`)
+- `certificate` (`text/plain`, `application/json`)
+- `instrument` (`text/plain`, `application/json`)
+- `timeline` (`text/plain`, `application/json`)
 
 Artifacts are renderings, not new canonical evidence. No artifact persistence is implemented in this phase.
 
@@ -236,4 +259,4 @@ vendor/bin/pest
 ## Production posture
 
 The package is an independent evidentiary foundation layer and should be integrated through host adapters and host-level characterization tests.
-Key production deferrals are documented in the architecture docs (idempotency, database-level immutability, signatures, artifact persistence/redaction, visibility-aware pagination, async secondary sinks, and live call-site wiring).
+Key production deferrals are documented in the architecture docs.

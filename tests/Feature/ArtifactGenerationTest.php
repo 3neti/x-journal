@@ -12,6 +12,8 @@ use LBHurtado\XJournal\Data\JournalArtifactData;
 use LBHurtado\XJournal\Data\JournalArtifactProfileData;
 use LBHurtado\XJournal\Exceptions\JournalArtifactRendererNotFoundException;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use LBHurtado\XJournal\Renderers\MachineSupplementalArtifactRenderer;
+use LBHurtado\XJournal\Renderers\TextSupplementalArtifactRenderer;
 use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
 use LBHurtado\XJournal\Renderers\TextStatementArtifactRenderer;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
@@ -136,3 +138,37 @@ it('allows package consumers to register artifact renderers', function () {
     expect($artifact->format)->toBe('application/json')
         ->and($artifact->content)->toBe('{"reference_number":"ERN-2026-000000001"}');
 });
+
+it('routes certificate, instrument, and timeline artifacts as text profiles', function (string $type): void {
+    $entry = app(ExecutionJournalRecorder::class)->record(artifactJournalEntryData());
+
+    $artifact = app(JournalArtifactGenerator::class)->generate(
+        [$entry],
+        new JournalArtifactProfileData($type, 'text/plain'),
+    );
+
+    expect($artifact->type)->toBe($type)
+        ->and($artifact->format)->toBe('text/plain')
+        ->and($artifact->referenceNumbers)->toBe(['ERN-2026-000000001'])
+        ->and($artifact->content)->toContain('Journal '.ucfirst($type))
+        ->and($artifact->metadata['renderer'])->toBe(TextSupplementalArtifactRenderer::class);
+})->with(['certificate', 'instrument', 'timeline']);
+
+it('supports machine profiles for certificate, instrument, timeline, and statement artifacts', function (string $type): void {
+    $entry = app(ExecutionJournalRecorder::class)->record(artifactJournalEntryData());
+
+    $artifact = app(JournalArtifactGenerator::class)->generate(
+        [$entry],
+        new JournalArtifactProfileData($type, 'application/json'),
+    );
+
+    $payload = json_decode($artifact->content, true, 512, JSON_THROW_ON_ERROR);
+
+    expect($artifact->type)->toBe($type)
+        ->and($artifact->format)->toBe('application/json')
+        ->and($artifact->metadata['renderer'])->toBe(MachineSupplementalArtifactRenderer::class)
+        ->and($payload['type'])->toBe($type)
+        ->and($payload['format'])->toBe('application/json')
+        ->and($payload)->toHaveKey('entries')
+        ->and($payload['entries'][0]['reference_number'])->toBe('ERN-2026-000000001');
+})->with(['certificate', 'instrument', 'timeline', 'statement']);

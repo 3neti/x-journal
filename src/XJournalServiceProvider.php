@@ -26,6 +26,8 @@ use LBHurtado\XJournal\Services\NullJournalSink;
 use LBHurtado\XJournal\Services\XChangeExecutionJournalRecorder;
 use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
+use LBHurtado\XJournal\Renderers\TextSupplementalArtifactRenderer;
+use LBHurtado\XJournal\Renderers\MachineSupplementalArtifactRenderer;
 use LBHurtado\XJournal\Renderers\TextStatementArtifactRenderer;
 use LBHurtado\XJournal\Transformers\CampaignJournalTransformer;
 use LBHurtado\XJournal\Transformers\ClaimLifecycleJournalTransformer;
@@ -85,7 +87,9 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(JournalArtifactGenerator::class, function (): JournalArtifactGenerator {
             return (new JournalArtifactGenerator)
                 ->register(new TextStatementArtifactRenderer)
-                ->register(new TextReceiptArtifactRenderer);
+                ->register(new TextReceiptArtifactRenderer)
+                ->register(new TextSupplementalArtifactRenderer)
+                ->register(new MachineSupplementalArtifactRenderer);
         });
         $this->app->singleton(JournalEventTransformerRegistry::class, function (): JournalEventTransformerRegistry {
             return (new JournalEventTransformerRegistry)
