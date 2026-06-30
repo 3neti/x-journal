@@ -2,6 +2,7 @@
 
 use Carbon\CarbonImmutable;
 use LBHurtado\XJournal\Contracts\JournalVisibilityPolicyContract;
+use LBHurtado\XJournal\Contracts\JournalVisibilityAccessReasonLoggerContract;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
@@ -11,6 +12,7 @@ use LBHurtado\XJournal\Data\JournalAccessDecisionData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
+use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 
 function visibleJournalEntry(): ExecutionJournalEntry
 {
@@ -126,4 +128,37 @@ it('allows package consumers to add visibility policies', function () {
 
     expect($decision->allowed)->toBeTrue()
         ->and($decision->reason)->toBe('permission:custom.audit');
+});
+
+it('records visibility decisions through a configurable access reason logger', function () {
+    $entry = visibleJournalEntry();
+    $calls = [];
+    $logger = new class($calls) implements JournalVisibilityAccessReasonLoggerContract
+    {
+        public function __construct(public array &$calls)
+        {
+        }
+
+        public function log(ExecutionJournalEntry $entry, JournalAccessActorData $actor, JournalAccessDecisionData $decision): void
+        {
+            $this->calls[] = [
+                'entry_reference_number' => $entry->reference_number,
+                'actor_id' => $actor->id,
+                'allowed' => $decision->allowed,
+                'reason' => $decision->reason,
+                'policy' => $decision->policy,
+            ];
+        }
+    };
+
+    $gate = new JournalVisibilityGate([], $logger);
+    $gate->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);
+    $decision = $gate->decide($entry, JournalAccessActorData::fromArray([
+        'id' => 'operator-1',
+        'type' => 'operator',
+    ]));
+
+    expect($decision->allowed)->toBeTrue()
+        ->and($calls)->toHaveCount(1)
+        ->and($calls[0]['reason'])->toBe('actor-match');
 });

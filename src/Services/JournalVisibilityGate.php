@@ -2,6 +2,7 @@
 
 namespace LBHurtado\XJournal\Services;
 
+use LBHurtado\XJournal\Contracts\JournalVisibilityAccessReasonLoggerContract;
 use LBHurtado\XJournal\Contracts\JournalVisibilityPolicyContract;
 use LBHurtado\XJournal\Data\JournalAccessActorData;
 use LBHurtado\XJournal\Data\JournalAccessDecisionData;
@@ -14,6 +15,7 @@ class JournalVisibilityGate
      */
     public function __construct(
         protected array $policies = [],
+        protected ?JournalVisibilityAccessReasonLoggerContract $accessReasonLogger = null,
     ) {}
 
     public function addPolicy(JournalVisibilityPolicyContract $policy): self
@@ -29,11 +31,16 @@ class JournalVisibilityGate
             $decision = $policy->decide($entry, $actor);
 
             if ($decision->allowed) {
+                ($this->accessReasonLogger ?? new NullJournalVisibilityAccessReasonLogger())->log($entry, $actor, $decision);
+
                 return $decision;
             }
         }
 
-        return JournalAccessDecisionData::deny('no-policy-allowed-access');
+        $decision = JournalAccessDecisionData::deny('no-policy-allowed-access');
+        ($this->accessReasonLogger ?? new NullJournalVisibilityAccessReasonLogger())->log($entry, $actor, $decision);
+
+        return $decision;
     }
 
     public function allows(ExecutionJournalEntry $entry, JournalAccessActorData $actor): bool

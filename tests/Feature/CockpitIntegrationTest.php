@@ -2,6 +2,7 @@
 
 use Carbon\CarbonImmutable;
 use LBHurtado\XJournal\Data\CockpitJournalQueryData;
+use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
 use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
@@ -347,7 +348,8 @@ it('allows package consumers to override cockpit visibility presentation contrac
                     JournalVisibilityProfileData::fromArray(['name' => 'summary'])
                 );
             }
-        }
+        },
+        app(JournalVisibilityProfileResolverContract::class)
     );
 
     $view = $reader->read(CockpitJournalQueryData::fromArray([
@@ -362,4 +364,67 @@ it('allows package consumers to override cockpit visibility presentation contrac
     ]));
 
     expect($view->entries->first()?->payload)->toBe([]);
+});
+
+it('resolves visibility profiles through a configurable profile resolver', function () {
+    cockpitJournalEntry(
+        eventType: 'execution.result.recorded',
+        executionId: 'exec-role-profile-1',
+    );
+
+    $reader = new CockpitJournalReader(
+        app(JournalEntryRetriever::class),
+        app(JournalVisibilityGate::class),
+        new class implements LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract
+        {
+            public function present(
+                \LBHurtado\XJournal\Models\ExecutionJournalEntry $entry,
+                \LBHurtado\XJournal\Data\JournalAccessActorData $actor,
+                \LBHurtado\XJournal\Data\JournalAccessDecisionData $decision,
+                JournalVisibilityProfileData $profile,
+            ): \LBHurtado\XJournal\Data\CockpitJournalEntryData {
+                return \LBHurtado\XJournal\Data\CockpitJournalEntryData::fromEntryWithProfile(
+                    $entry,
+                    $decision,
+                    $profile,
+                );
+            }
+        },
+        new class implements JournalVisibilityProfileResolverContract
+        {
+            public function resolve(
+                \LBHurtado\XJournal\Models\ExecutionJournalEntry $entry,
+                \LBHurtado\XJournal\Data\JournalAccessActorData $actor,
+                \LBHurtado\XJournal\Data\JournalAccessDecisionData $decision,
+                JournalVisibilityProfileData $requestedProfile,
+            ): JournalVisibilityProfileData {
+                if (in_array('finance', $actor->roles, true)) {
+                    return JournalVisibilityProfileData::fromArray(['name' => 'summary']);
+                }
+
+                return $requestedProfile;
+            }
+        },
+    );
+
+    $view = $reader->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'operator-1',
+            'type' => 'system',
+            'roles' => ['finance'],
+            'permissions' => ['x-journal.view'],
+        ],
+        'query' => [
+            'execution_id' => 'exec-role-profile-1',
+        ],
+    ]));
+
+    expect($view->visibleTotal)->toBe(1)
+        ->and($view->entries->first()?->payload)->toBe([])
+        ->and($view->entries->first()?->metadata)->toBe([])
+        ->and($view->entries->first()?->actor)->toBe([
+            'id' => 'system-1',
+            'type' => 'system',
+            'metadata' => [],
+        ]);
 });

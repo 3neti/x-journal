@@ -22,6 +22,11 @@ return [
         'enabled' => true,
     ],
 
+    'visibility' => [
+        'role_profiles' => [],
+        'event_profiles' => [],
+    ],
+
     'sinks' => [
         'monolog' => [
             'enabled' => false,

@@ -22,9 +22,13 @@ use LBHurtado\XJournal\Services\JournalSinkDispatcher;
 use LBHurtado\XJournal\Services\MonologJournalSink;
 use LBHurtado\XJournal\Services\CockpitJournalEntryPresenter;
 use LBHurtado\XJournal\Services\DefaultJournalIntegrityVerificationMetadataProvider;
+use LBHurtado\XJournal\Services\DefaultJournalVisibilityProfileResolver;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
+use LBHurtado\XJournal\Services\NullJournalVisibilityAccessReasonLogger;
 use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
 use LBHurtado\XJournal\Contracts\JournalIntegrityVerificationMetadataContract;
+use LBHurtado\XJournal\Contracts\JournalVisibilityAccessReasonLoggerContract;
+use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
 use LBHurtado\XJournal\Services\OperatorActionJournalRecorder;
 use LBHurtado\XJournal\Services\ProviderCallbackJournalRecorder;
 use LBHurtado\XJournal\Services\ReconciliationJournalRecorder;
@@ -88,8 +92,10 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(CampaignJournalRecorder::class);
         $this->app->singleton(ExecutionStatementSnapshotHasher::class);
         $this->app->singleton(ExecutionStatementSnapshotGenerator::class);
+        $this->app->singleton(JournalVisibilityAccessReasonLoggerContract::class, NullJournalVisibilityAccessReasonLogger::class);
+        $this->app->singleton(JournalVisibilityProfileResolverContract::class, DefaultJournalVisibilityProfileResolver::class);
         $this->app->singleton(JournalVisibilityGate::class, function (): JournalVisibilityGate {
-            return (new JournalVisibilityGate)
+            return (new JournalVisibilityGate([], app(JournalVisibilityAccessReasonLoggerContract::class)))
                 ->addPolicy(new ActorOrSubjectJournalVisibilityPolicy);
         });
         $this->app->singleton(JournalCockpitEntryPresentationContract::class, CockpitJournalEntryPresenter::class);
