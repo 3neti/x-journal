@@ -26,6 +26,8 @@ use LBHurtado\XJournal\Services\JournalSinkDispatcher;
 use LBHurtado\XJournal\Services\MonologJournalSink;
 use LBHurtado\XJournal\Services\CockpitJournalEntryPresenter;
 use LBHurtado\XJournal\Services\DefaultJournalIntegrityVerificationMetadataProvider;
+use LBHurtado\XJournal\Contracts\JournalVerificationServiceContract;
+use LBHurtado\XJournal\Services\DefaultJournalVerificationService;
 use LBHurtado\XJournal\Services\DefaultJournalIdempotencyKeyResolver;
 use LBHurtado\XJournal\Services\DefaultJournalVisibilityProfileResolver;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
@@ -109,6 +111,7 @@ class XJournalServiceProvider extends ServiceProvider
         });
         $this->app->singleton(JournalCockpitEntryPresentationContract::class, CockpitJournalEntryPresenter::class);
         $this->app->singleton(JournalIntegrityVerificationMetadataContract::class, DefaultJournalIntegrityVerificationMetadataProvider::class);
+        $this->app->singleton(JournalVerificationServiceContract::class, DefaultJournalVerificationService::class);
         $this->app->singleton(JournalArtifactGenerator::class, function (): JournalArtifactGenerator {
             return (new JournalArtifactGenerator)
                 ->register(new TextStatementArtifactRenderer)

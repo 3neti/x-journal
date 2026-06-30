@@ -27,6 +27,13 @@ return [
         'event_profiles' => [],
     ],
 
+    'verification' => [
+        'base_url' => null,
+        'path' => '/verify',
+        'token_secret' => null,
+        'token_ttl_minutes' => 0,
+    ],
+
     'sinks' => [
         'monolog' => [
             'enabled' => false,

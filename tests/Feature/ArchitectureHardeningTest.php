@@ -2,6 +2,7 @@
 
 use Carbon\CarbonImmutable;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
+use LBHurtado\XJournal\Contracts\JournalVerificationServiceContract;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
@@ -82,6 +83,7 @@ it('keeps core journal infrastructure bound as shared services', function () {
         ->and(app(DatabaseJournalSink::class))->toBe(app(DatabaseJournalSink::class))
         ->and(app(JournalEntryRetriever::class))->toBe(app(JournalEntryRetriever::class))
         ->and(app(JournalVisibilityGate::class))->toBe(app(JournalVisibilityGate::class))
+        ->and(app(JournalVerificationServiceContract::class))->toBe(app(JournalVerificationServiceContract::class))
         ->and(app(CockpitJournalReader::class))->toBe(app(CockpitJournalReader::class));
 });
 
