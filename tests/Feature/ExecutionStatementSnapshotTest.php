@@ -6,10 +6,12 @@ use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionMoneyData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
+use LBHurtado\XJournal\Data\ExecutionStatementSnapshotQueryData;
 use LBHurtado\XJournal\Models\ExecutionStatementSnapshot;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
 
 function statementJournalEntryData(
     ?string $referenceNumber = null,
@@ -121,4 +123,132 @@ it('supports explicit statement numbers and empty entry sets for snapshots', fun
         ->and($snapshot->entries_count)->toBe(0)
         ->and($snapshot->entries_hash)->toBeString()
         ->and($snapshot->hash)->toBeString();
+});
+
+it('searches snapshots by statement and subject filters', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+
+    $entries = collect([$recorder->record(statementJournalEntryData())]);
+
+    $matching = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-1',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:00:00', 'UTC'),
+    );
+
+    $generator->generate(
+        statementType: 'program',
+        subjectType: 'program',
+        subjectId: 'program-1',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:10:00', 'UTC'),
+    );
+
+    $queryResult = app(ExecutionStatementSnapshotRetriever::class)->search(new ExecutionStatementSnapshotQueryData(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-1',
+        limit: 10,
+    ));
+
+    expect($queryResult->total)->toBe(1)
+        ->and($queryResult->snapshots->first()->is($matching))->toBeTrue();
+});
+
+it('supports snapshot lookup by statement number and latest-per-subject retrieval', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $entries = collect([$recorder->record(statementJournalEntryData())]);
+
+    $first = $generator->generate(
+        statementType: 'campaign',
+        subjectType: 'campaign',
+        subjectId: 'campaign-1',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 09:00:00', 'UTC'),
+    );
+
+    $second = $generator->generate(
+        statementType: 'campaign',
+        subjectType: 'campaign',
+        subjectId: 'campaign-1',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-07-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-07-31 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-07-31 09:00:00', 'UTC'),
+    );
+
+    $retriever = app(ExecutionStatementSnapshotRetriever::class);
+
+    expect($retriever->findByStatementNumber($first->statement_number)?->is($first))->toBeTrue()
+        ->and($retriever->latestForSubject('campaign', 'campaign', 'campaign-1')?->is($second))->toBeTrue();
+});
+
+it('supports deterministic snapshot retrieval windows', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $entries = collect([$recorder->record(statementJournalEntryData())]);
+
+    $first = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-2',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:00:00', 'UTC'),
+    );
+
+    $second = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-2',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-07-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-07-31 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-07-31 10:00:00', 'UTC'),
+    );
+
+    $window = app(ExecutionStatementSnapshotRetriever::class)->search(new ExecutionStatementSnapshotQueryData(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-2',
+        limit: 1,
+        offset: 1,
+        order: 'asc',
+    ));
+
+    expect($window->total)->toBe(2)
+        ->and($window->snapshots)->toHaveCount(1)
+        ->and($window->snapshots->first()->is($second))->toBeTrue()
+        ->and($window->hasMore())->toBeFalse();
+});
+
+it('does not mutate snapshots while searching', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+    $entries = collect([$recorder->record(statementJournalEntryData())]);
+
+    $snapshot = $generator->generate(
+        statementType: 'program',
+        subjectType: 'program',
+        subjectId: 'program-2',
+        entries: $entries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+    );
+
+    $original = $snapshot->fresh()?->toArray();
+    app(ExecutionStatementSnapshotRetriever::class)->search(new ExecutionStatementSnapshotQueryData(statementType: 'program'));
+
+    expect($snapshot->fresh()?->toArray())->toBe($original);
 });
