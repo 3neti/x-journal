@@ -13,16 +13,19 @@ use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotReconciler;
 
 function statementJournalEntryData(
     ?string $referenceNumber = null,
     string $subjectId = 'voucher-1',
+    string $subjectType = 'voucher',
+    ?CarbonImmutable $occurredAt = null,
 ): ExecutionJournalEntryData {
     return new ExecutionJournalEntryData(
         eventType: 'voucher.redeemed',
-        occurredAt: CarbonImmutable::parse('2026-06-29 10:15:00', 'UTC'),
+        occurredAt: $occurredAt ?? CarbonImmutable::parse('2026-06-29 10:15:00', 'UTC'),
         actor: new ExecutionActorData(id: '123', type: 'system', name: 'Journal Writer'),
-        subject: new ExecutionSubjectData(id: $subjectId, type: 'voucher', display: "Voucher {$subjectId}"),
+        subject: new ExecutionSubjectData(id: $subjectId, type: $subjectType, display: "Voucher {$subjectId}"),
         references: new ExecutionReferenceData(
             correlationId: 'corr-1',
             causationId: 'cause-1',
@@ -352,4 +355,84 @@ it('reports an invalid chain when previous hash links are broken', function () {
     expect(app(ExecutionStatementSnapshotRetriever::class)->verifyChainForQuery(
         new ExecutionStatementSnapshotQueryData(statementType: 'wallet', subjectType: 'wallet', subjectId: 'wallet-links')
     ))->toBeFalse();
+});
+
+it('reconciles snapshot entries with period journal events', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $reconciler = app(ExecutionStatementSnapshotReconciler::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+
+    $periodEntries = collect([
+        $recorder->record(statementJournalEntryData(
+            subjectId: 'wallet-reconcile',
+            subjectType: 'wallet',
+            occurredAt: CarbonImmutable::parse('2026-06-10 10:00:00', 'UTC'),
+        )),
+        $recorder->record(statementJournalEntryData(
+            subjectId: 'wallet-reconcile',
+            subjectType: 'wallet',
+            occurredAt: CarbonImmutable::parse('2026-06-15 14:00:00', 'UTC'),
+        )),
+    ]);
+
+    $recorder->record(statementJournalEntryData(
+        subjectId: 'other-wallet',
+        subjectType: 'wallet',
+        occurredAt: CarbonImmutable::parse('2026-06-12 10:00:00', 'UTC'),
+    ));
+
+    $snapshot = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-reconcile',
+        entries: $periodEntries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:00:00', 'UTC'),
+    );
+
+    $result = $reconciler->reconcile($snapshot);
+
+    expect($result->isConsistent())->toBeTrue()
+        ->and($result->actualEntriesCount)->toBe(2)
+        ->and($result->expectedEntriesCount)->toBe(2)
+        ->and($result->issues)->toBe([]);
+});
+
+it('flags snapshot mismatches when subject entries drift after snapshot creation', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $reconciler = app(ExecutionStatementSnapshotReconciler::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+
+    $firstSnapshotEntries = collect([
+        $recorder->record(statementJournalEntryData(
+            subjectId: 'wallet-reconcile-bad',
+            subjectType: 'wallet',
+            occurredAt: CarbonImmutable::parse('2026-06-10 10:00:00', 'UTC'),
+        )),
+    ]);
+
+    $snapshot = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-reconcile-bad',
+        entries: $firstSnapshotEntries,
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:00:00', 'UTC'),
+    );
+
+    $recorder->record(statementJournalEntryData(
+        subjectId: 'wallet-reconcile-bad',
+        subjectType: 'wallet',
+        occurredAt: CarbonImmutable::parse('2026-06-15 10:00:00', 'UTC'),
+    ));
+
+    $result = $reconciler->reconcile($snapshot);
+
+    expect($result->isConsistent())->toBeFalse()
+        ->and($result->actualEntriesCount)->toBe(2)
+        ->and($result->expectedEntriesCount)->toBe(1)
+        ->and($result->issues)->toContain('entries_count_mismatch')
+        ->and($result->issues)->toContain('entries_hash_mismatch');
 });
