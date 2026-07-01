@@ -137,6 +137,12 @@ class XJournalServiceProvider extends ServiceProvider
             __DIR__.'/../config/x-journal.php' => config_path('x-journal.php'),
         ], 'x-journal-config');
 
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \LBHurtado\XJournal\Console\Commands\VerifyJournalCommand::class,
+            ]);
+        }
+
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 }
