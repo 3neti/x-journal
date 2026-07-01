@@ -140,6 +140,7 @@ class XJournalServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \LBHurtado\XJournal\Console\Commands\VerifyJournalCommand::class,
+                \LBHurtado\XJournal\Console\Commands\VerifySnapshotsCommand::class,
             ]);
         }
 
