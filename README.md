@@ -80,15 +80,40 @@ Each DTO normalizes types (for example coercing IDs and metadata to canonical st
 The package has been implemented in a scaffolded way for Wave 2A and has full test coverage for the foundational phases.
 To align with the functional specification for a fully internal evidentiary package, the following slices are still open:
 
-- **Capture**: base idempotency key scaffolding is implemented (same key + same normalized payload returns existing entry; same key + different payload fails). Remaining policy-level retry-key strategy and tenant scoping are follow-up work.
-- **Normalize**: supported event/domain transformations exist, but some taxonomy targets from the full specification (`certificate`, `instrument`, timeline/statement workflows) are not yet added as first-class transformations.
-- **Persist**: canonical DB sink remains stable and immutable; database-level immutability, multi-sink lifecycle strategy, and archival sinks are deferred.
-- **Govern**: visibility is implemented for read access, but visibility profiles, role matrices, and redaction policies are not yet a package-wide feature set.
-- **Render**: receipt rendering plus text + JSON renderers for `statement`, `certificate`, `instrument`, and `timeline` are implemented. HTML/Markdown/PDF formats and public verification rendering remain deferred.
-- **Verify**: hash-chain verification is implemented; signatures, token-based verification levels, and public verification contracts remain deferred.
-- **Recover**: statement snapshotting and statement anchoring are not yet implemented as first-class package surfaces.
+The remainder is now tracked as integration-oriented work.
 
 The current implementation should be treated as a tested foundation, not a complete internal evidentiary platform yet.
+
+## TODO (remaining functional work)
+
+Remaining requirements from the package-level functional specification are tracked below. Most are integration or production-contract follow-ups rather than core evidence primitives.
+
+- [ ] **Add public verification contract surfaces**
+  - token/URL based verification flows,
+  - optional redaction rules for public verification payloads,
+  - explicit verification-level signaling (hash-only through signed/settlement-level flows).
+
+- [ ] **Complete external verification artifacts**
+  - public verification rendering for snapshots/entries,
+  - signature strategy and key-management integration.
+
+- [ ] **Add first-class recovery/anchor consumption APIs**
+  - host-facing endpoints or services that query statement snapshots by window/range,
+  - visibility-safe pagination for recovery artifact consumers.
+
+- [ ] **Finish x-change and settlement-envelope integration hooks**
+  - runtime event listeners/projectors are not yet part of this package scope,
+  - settlement envelope anchoring and emitted artifact consumption are still host-driven.
+
+- [ ] **Finalize advanced render formats**
+  - Markdown/HTML/PDF output formats,
+  - richer profile registry for certificate/instrument/timeline domains when required by consuming apps.
+
+- [ ] **Production behavior hardening that is deferred for now**
+  - database-level immutability enforcement,
+  - visibility-aware cursor pagination,
+  - asynchronous/queued secondary sink dispatch,
+  - tenant-aware idempotency policy definitions.
 
 ### Event transformation
 
