@@ -98,7 +98,15 @@ class CockpitJournalReader
             offset: $offset,
             hasMore: $hasMore,
             context: $query->context,
-            metadata: $query->metadata,
+            metadata: array_replace_recursive($query->metadata, [
+                'pagination' => [
+                    'limit_semantics' => 'visible_entries',
+                    'offset_semantics' => 'visible_entries',
+                    'visible_total_semantics' => 'page_visible_count',
+                    'retrieved_total_semantics' => 'raw_matching_entries',
+                    'has_more_semantics' => 'more_visible_entries',
+                ],
+            ]),
         );
     }
 }

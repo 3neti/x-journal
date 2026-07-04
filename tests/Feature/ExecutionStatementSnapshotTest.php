@@ -7,6 +7,7 @@ use LBHurtado\XJournal\Data\ExecutionMoneyData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Data\ExecutionStatementSnapshotQueryData;
+use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Models\ExecutionStatementSnapshot;
 use Illuminate\Support\Facades\DB;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
@@ -436,6 +437,50 @@ it('flags snapshot mismatches when subject entries drift after snapshot creation
         ->and($result->expectedEntriesCount)->toBe(1)
         ->and($result->issues)->toContain('entries_count_mismatch')
         ->and($result->issues)->toContain('entries_hash_mismatch');
+});
+
+it('detects tampered journal entries without mutating entries or snapshots', function () {
+    $generator = app(ExecutionStatementSnapshotGenerator::class);
+    $reconciler = app(ExecutionStatementSnapshotReconciler::class);
+    $verifier = app(ExecutionStatementSnapshotVerifier::class);
+    $recorder = app(ExecutionJournalRecorder::class);
+
+    $entry = $recorder->record(statementJournalEntryData(
+        subjectId: 'wallet-entry-tamper',
+        subjectType: 'wallet',
+        occurredAt: CarbonImmutable::parse('2026-06-10 10:00:00', 'UTC'),
+    ));
+
+    $snapshot = $generator->generate(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-entry-tamper',
+        entries: collect([$entry]),
+        periodStart: CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'),
+        periodEnd: CarbonImmutable::parse('2026-06-30 23:59:59', 'UTC'),
+        generatedAt: CarbonImmutable::parse('2026-06-30 10:00:00', 'UTC'),
+    );
+
+    DB::table('execution_journal_entries')
+        ->where('id', $entry->id)
+        ->update(['payload' => json_encode(['status' => 'tampered'], JSON_THROW_ON_ERROR)]);
+
+    $tamperedEntryBefore = ExecutionJournalEntry::query()->find($entry->id)?->toArray();
+    $snapshotBefore = $snapshot->fresh()?->toArray();
+    $reconciliation = $reconciler->reconcile($snapshot->fresh());
+    $verification = $verifier->verifyAll(new ExecutionStatementSnapshotQueryData(
+        statementType: 'wallet',
+        subjectType: 'wallet',
+        subjectId: 'wallet-entry-tamper',
+    ));
+
+    expect($reconciliation->isConsistent())->toBeFalse()
+        ->and($reconciliation->issues)->toContain('entries_hash_mismatch')
+        ->and($reconciliation->issues)->not->toContain('entries_count_mismatch')
+        ->and($verification->isVerified())->toBeFalse()
+        ->and(collect($verification->issues)->pluck('code')->all())->toContain('entries_hash_mismatch')
+        ->and(ExecutionJournalEntry::query()->find($entry->id)?->toArray())->toBe($tamperedEntryBefore)
+        ->and($snapshot->fresh()?->toArray())->toBe($snapshotBefore);
 });
 
 it('verifies a complete snapshot set through the recovery verifier', function () {

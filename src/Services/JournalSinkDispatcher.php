@@ -6,9 +6,15 @@ use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Contracts\SecondaryJournalSinkContract;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use Throwable;
 
 class JournalSinkDispatcher implements JournalSinkContract
 {
+    /**
+     * @var array<int, array<string, mixed>>
+     */
+    protected array $projectionFailures = [];
+
     /**
      * @param  array<string, SecondaryJournalSinkContract>  $secondarySinks
      */
@@ -32,6 +38,14 @@ class JournalSinkDispatcher implements JournalSinkContract
         return $this->secondarySinks;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function projectionFailures(): array
+    {
+        return $this->projectionFailures;
+    }
+
     public function hasSecondarySink(string $name): bool
     {
         return array_key_exists($name, $this->secondarySinks);
@@ -53,11 +67,35 @@ class JournalSinkDispatcher implements JournalSinkContract
             ? $this->secondarySinks
             : $this->selectedSecondarySinks($selectedSinks);
 
-        foreach ($sinksToDispatch as $secondarySink) {
-            $secondarySink->recordProjection($canonicalEntry, $entry);
+        foreach ($sinksToDispatch as $name => $secondarySink) {
+            try {
+                $secondarySink->recordProjection($canonicalEntry, $entry);
+            } catch (Throwable $exception) {
+                $this->captureProjectionFailure((string) $name, $secondarySink, $canonicalEntry, $exception);
+            }
         }
 
         return $canonicalEntry;
+    }
+
+    protected function captureProjectionFailure(
+        string $name,
+        SecondaryJournalSinkContract $sink,
+        ExecutionJournalEntry $entry,
+        Throwable $exception,
+    ): void {
+        $failure = [
+            'sink' => $name,
+            'sink_class' => $sink::class,
+            'reference_number' => $entry->reference_number,
+            'entry_id' => $entry->getKey(),
+            'exception_class' => $exception::class,
+            'message' => $exception->getMessage(),
+        ];
+
+        $this->projectionFailures[] = $failure;
+
+        logger()->warning('x-journal secondary sink projection failed', $failure);
     }
 
     /**

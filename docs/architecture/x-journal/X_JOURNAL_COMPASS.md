@@ -8,10 +8,25 @@ The package records what happened across execution, claims, authorization, settl
 
 ## Current Position
 
-Current wave: Wave 2A — x-journal  
-Current slice: Phase 15 — Production Readiness  
-Status: Complete (scaffolded)
-Last updated: 2026-06-30
+Current wave: Wave 2A - x-journal
+Current slice: Cockpit readiness and sink failure semantics stabilization
+Status: Complete (implementation + tests)
+Last updated: 2026-07-04
+
+Parity Review: Completed against source, tests, README, compass, and `docs/todo/x-journal` planning artifacts in
+`/Users/rli/PhpstormProjects/x-change-sandbox/docs/todo/x-journal`.
+See [`PARITY_REPORT.md`](./PARITY_REPORT.md).
+
+## As-Built Assessment
+
+The current package behavior remains aligned with the evidentiary-role intent while going beyond the original Phase 1 envelope.
+The codebase is mostly complete in package-local capture/normalize/persist/govern/render/verify workflows, with remaining
+work concentrated in deferred/public-trust features and production hardening semantics (signed verification, redaction matrices,
+host idempotency guidance, and projection-failure observability).
+
+The 2026-07-04 stabilization slice closes the most immediate Cockpit-readiness gaps from the parity report:
+secondary sink failures are non-blocking projection failures by default, Cockpit pagination semantics are explicit,
+and statement/snapshot anchoring boundaries are protected by stronger tests.
 
 ## Phase Progress
 
@@ -43,10 +58,10 @@ This compass maps the functional specification into bounded, package-local slice
 | Capture | Partial (in progress) | Entry-level idempotent key replay is implemented (`ExecutionJournalRecorder` + DB checksum) | `ExecutionJournalRecorder`, `ExecutionJournalIdempotencyHasher`, `execution_journal_entries.idempotency_key`, conflict exception | Full key strategy and policy-level tenant scoping are still pending |
 | Normalize | Partial | Event/event-transformer normalization is implemented for execution, claim, provider callback, reconciliation, operator, campaign domains | `JournalEventData`, transformer registry, recorder tests | Artifact-type taxonomies and some transform targets (`certificate`, `instrument`, timeline-oriented transforms) are still pending |
 | Persist | Mostly complete | Canonical DB storage with immutable model, counter-backed ERN, hash-chain integrity, scalar projections | `execution_journal_entries`, `ExecutionJournalIntegrityHasher`, `JournalIntegrityVerifier` | No database-level immutability guarantees, sink lifecycle controls, or archival write policy in baseline |
-| Govern | Partial | Actor/subject visibility and policy seam exist | `JournalVisibilityGate`, `JournalVisibilityPolicyContract`, cockpit integration | No profile matrix, role mapping, redaction/presentation matrix, or access-reason logging contracts |
+| Govern | Mostly complete | Actor/subject visibility, policy seam, access-reason hook, and visible-entry Cockpit pagination semantics exist | `JournalVisibilityGate`, `JournalVisibilityPolicyContract`, `CockpitJournalReader`, cockpit integration | No full production profile matrix, role mapping catalog, or redaction/presentation matrix |
 | Render | Partial | In-memory artifact rendering exists for text + machine profiles across statement/certificate/instrument/timeline | `JournalArtifactGenerator`, receipt/statement/supplemental renderers | No HTML/Markdown/PDF baseline renderers; no public verification rendering |
 | Verify | Partial | Deterministic hash-chain verification and continuity checks are implemented | `JournalIntegrityVerifier`, integrity data | No signature policy, verification profiles/levels, or token/URL-based verification contract |
-| Recover | Deferred | No statement snapshot primitives yet | none | Statement snapshot model, anchoring tables, and snapshot generation services are not present |
+| Recover | Partial | Statement snapshot primitives are implemented (`ExecutionStatementSnapshot*`) | `ExecutionStatementSnapshot`, `ExecutionStatementSnapshotGenerator`, `ExecutionStatementSnapshotReconciler` | Snapshot publication/anchoring contracts and full recovery-run ergonomics remain to be finalized |
 
 ### Slice Execution Rule
 
@@ -201,8 +216,16 @@ This compass maps the functional specification into bounded, package-local slice
   - validation command documentation
   - production-readiness tests for documentation, Composer metadata, config publishing, and migration availability
   - Wave 2A closure recommendation
+- Completed Cockpit Readiness and Sink Failure Semantics Stabilization:
+  - secondary sink failures are captured as non-blocking projection failures
+  - canonical database persistence remains authoritative when secondary sinks fail
+  - one failing secondary sink does not prevent later secondary sinks from being attempted
+  - Cockpit `limit` and `offset` are visible-entry pagination controls
+  - Cockpit `retrieved_total`, `visible_total`, and `has_more` semantics are explicitly documented in metadata
+  - statement/snapshot tests now prove tampered journal entries are detected without mutating entries or snapshots
+  - parity report and compass updated with stabilization decisions
 
-## Discoveries
+## Current Discoveries
 
 - `docs/todo/x-journal/x-journal_codex_instructions.md` is empty.
 - `docs/todo/x-journal/x-journal_codex_instructions_addendum.md` contains the operative Compass rules.
@@ -241,6 +264,9 @@ This compass maps the functional specification into bounded, package-local slice
 - Unsupported events fail before journal persistence through `JournalEventRecorder`, preserving fail-closed behavior for unrecognized domains.
 - Phase 15 confirmed Testbench `base_path()` points to the temporary Laravel app, so package-file readiness tests must resolve the package root directly.
 - Production readiness can close the package scaffolding without resolving host-specific concerns when those concerns are explicitly documented as deferrals.
+- Secondary sink dispatch remains synchronous, but secondary failures are now non-blocking by default and recorded as projection failures on the dispatcher.
+- Cockpit pagination now has an explicit contract: `limit` and `offset` are visible-entry based, `retrieved_total` is raw matching count, `visible_total` is page-visible count, and `has_more` means more visible entries exist.
+- Snapshot reconciliation and verification remain evidentiary diagnostics; they detect tampered entries and broken chains without mutating journal entries, snapshots, workflow state, settlement state, or money.
 
 ## Risks
 
@@ -251,7 +277,7 @@ This compass maps the functional specification into bounded, package-local slice
 - Hash chaining is deterministic but not yet signed; signature strategy remains a later verification concern.
 - Phase 2 intentionally avoids dependencies on voucher or x-change classes; integration adapters remain future work.
 - Domain transformer baselines intentionally preserve raw domain payloads instead of interpreting success, failure, discrepancy resolution, or required next actions.
-- Secondary sinks currently execute synchronously after canonical database persistence.
+- Secondary sinks currently execute synchronously after canonical database persistence; failures are captured and logged as projection failures, but there is no retry queue or host observability export yet.
 - Default visibility allows matching journal actor, matching journal subject, or explicit `x-journal.view` permission.
 - Artifact persistence, signatures, public URLs, storage disks, and PDF generation are intentionally deferred.
 - Generated artifacts currently render from the entries supplied by the caller; authorization and query scoping must happen before artifact generation in consuming applications.
@@ -274,13 +300,13 @@ This compass maps the functional specification into bounded, package-local slice
 - Campaign records may contain sensitive beneficiary-list counts, targeting criteria, program details, distribution schedules, and voucher batch identifiers; host APIs must pair retrieval with visibility/redaction policies before exposure.
 - Host campaign layers must not treat campaign journal records as voucher issuance, execution, distribution dispatch, or campaign lifecycle mutation.
 - Cockpit read models expose canonical journal payloads and may surface sensitive data; host Cockpit APIs must add redaction/presentation rules before broad operator exposure.
-- Phase 13 visibility filtering happens after the retrieval window. A page can contain fewer visible entries than the underlying query window; production Cockpit pagination may need visibility-aware cursor/windowing.
+- Phase 13 visibility filtering now scans until it satisfies visible-entry pagination semantics. Production Cockpit pagination may still need cursor/windowing for very large journals.
 - Cockpit read models are read-side projections only. Host Cockpit code must not treat them as command execution, action authorization, or lifecycle truth beyond the underlying journal facts.
 - Direct database writes can still bypass model-level append-only guards; database-level immutability remains outside this package baseline.
 - Entry-level idempotency is implemented for canonical journal entries; host-provided key strategy remains unresolved across execution outcomes, provider callbacks, reconciliation records, operator actions, and campaign records.
 - Execution transformer metadata shape differs from later domain transformers because it lacks a `domain` key; consumers should not assume every transformed entry has `metadata.domain`.
 - Phase 15 does not make x-journal production-wired in host applications. Host integration must still be performed through package-specific characterization tests.
-- The package is release-ready as a foundation, with capture-idempotency now scaffolded but not yet complete across all host-provided retry semantics.
+- The package is release-ready as a read-only Cockpit evidence source, with host idempotency strategy, public verification surfaces, signatures, queueing/retry, and full redaction matrices still outside the current baseline.
 
 ## Architectural Decisions
 
@@ -344,6 +370,9 @@ This compass maps the functional specification into bounded, package-local slice
 - The next recommended workstream is Wave 2B — x-action.
 - Execution Engine remains journal-ready but not journal-dependent.
 - Monolog/log files may be sinks or technical diagnostics, but they are not canonical journal truth.
+- Secondary sink failures are projection failures. By default they are captured and logged, do not invalidate canonical entries, do not roll back canonical persistence, and do not prevent later secondary sinks from being attempted.
+- Cockpit pagination semantics are visible-entry based: `limit` requests visible entries, `offset` skips visible entries, `retrieved_total` counts raw matching entries, `visible_total` counts entries returned in the page, and `has_more` indicates another visible entry exists after the page.
+- Statement snapshots are evidentiary anchors and cross-check artifacts, not recovery engines. Snapshot verification reports chain/replay issues without executing recovery, settlement, workflow, or money movement.
 
 ## Test Coverage Status
 
@@ -358,9 +387,15 @@ This compass maps the functional specification into bounded, package-local slice
 - Operator action integration tests cover payload normalization, audit fact recording, denied/blocked action preservation without workflow mutation, retrieval by execution/causation references, and non-mutating recording.
 - Campaign integration tests cover payload normalization, audit fact recording, batch fact preservation without issuance/execution/distribution decisions, retrieval by execution/program references, and non-mutating recording.
 - Cockpit integration tests cover query normalization, read-model projection, visibility-gated retrieval, subject-visible reads, non-execution of operator actions, and non-mutating reads.
+- Cockpit integration tests now cover full visible pages with interleaved invisible entries, visible-entry offsets, `has_more` true/false behavior, raw retrieved totals, page visible totals, and metadata semantics.
+- Sink architecture tests now cover non-blocking secondary sink failure behavior, continued dispatch after a projection failure, captured projection failure metadata, and canonical payload/integrity immutability.
+- Statement snapshot tests now cover tampered journal entry detection and prove reconciliation/verification do not mutate entries or snapshots.
 - Architecture hardening tests cover runtime package independence, singleton infrastructure bindings, append-only invariants, supported transformer domains, unsupported-event fail-closed behavior, no persistence side effects for unsupported events, and Cockpit post-retrieval visibility windowing.
 - Production readiness tests cover release documentation, explicit deferrals, Composer metadata, Laravel auto-discovery, config publishing, and migration availability.
-- Full x-journal package suite is green: `117 passed, 563 assertions`.
+- Focused stabilization suite is green: `41 passed, 187 assertions`.
+- Architecture hardening suite is green: `6 passed, 26 assertions`.
+- Full x-journal package suite is green: `160 passed, 758 assertions`.
+- `vendor/bin/pint --dirty --format agent` was not available because `vendor/bin/pint` is not installed or executable in this package.
 
 ## V1 Completion Plan
 
@@ -372,22 +407,22 @@ This compass maps the functional specification into bounded, package-local slice
 
 ## Next Recommended Slice
 
-Wave 2B — x-action.
+Read-only x-change Cockpit integration characterization.
 
 Recommended next coverage:
 
-- Scaffold or inspect `/Users/rli/PhpstormProjects/packages/x-action`.
-- Read `/Users/rli/PhpstormProjects/x-change-sandbox/docs/todo/x-action`.
-- Establish the x-action Compass.
-- Begin only the authorized first x-action slice.
-- Keep x-action as workflow continuation / CTA state; it must not execute money movement or mutate journal truth.
+- Wire x-change only through characterization tests around the Cockpit read path.
+- Consume `CockpitJournalReader`, verification services, and statement snapshot read models as evidence sources.
+- Keep x-journal read-only in Cockpit.
+- Do not use x-journal as lifecycle truth, authorization truth, recovery execution, settlement execution, or money movement authority.
+- Keep public verification routes, PDF/object-storage/export features, queues, signatures, and settlement-envelope recovery orchestration deferred.
 
 ## Open Questions
 
 - Which host package should first consume x-journal: x-change adapters, voucher events, or a dedicated integration layer?
 - What signature strategy should be used for future tamper-evident verification artifacts?
 - Should default transformers be configured declaratively through config or only registered programmatically?
-- Should secondary sinks remain synchronous or move to queued dispatch before production use?
+- Should secondary projection failures be exported to a host-provided observability sink before production use?
 - Should visibility policies be configured declaratively through config or composed programmatically by host packages?
 - Which artifact formats should become first-class beyond text/plain baselines: PDF, JSON, CSV, or signed bundles?
 - Where should persisted artifacts live once storage is introduced: local disk, S3-compatible storage, or host-package controlled disks?

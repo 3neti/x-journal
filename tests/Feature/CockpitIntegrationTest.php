@@ -278,6 +278,8 @@ it('applies pagination after visibility filtering', function () {
     expect($view->retrievedTotal)->toBe(5)
         ->and($view->visibleTotal)->toBe(2)
         ->and($view->hasMore)->toBeTrue()
+        ->and($view->limit)->toBe(2)
+        ->and($view->offset)->toBe(0)
         ->and($view->entries->pluck('subject')->map(fn (array $subject) => $subject['id'])->all())->toBe([
             'claim-1',
             'claim-1',
@@ -308,8 +310,78 @@ it('supports visible pagination offsets independently from raw result windows', 
     expect($secondPage->retrievedTotal)->toBe(5)
         ->and($secondPage->visibleTotal)->toBe(1)
         ->and($secondPage->hasMore)->toBeTrue()
+        ->and($secondPage->limit)->toBe(1)
+        ->and($secondPage->offset)->toBe(1)
         ->and($secondPage->entries->first()?->subject['id'])->toBe('claim-1')
         ->and($secondPage->entries)->toHaveCount(1);
+});
+
+it('reports no more visible cockpit entries after the last visible page', function () {
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-3');
+    cockpitJournalEntry(subjectId: 'claim-hidden-1', subjectType: 'claim', executionId: 'exec-visibility-3');
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-3');
+    cockpitJournalEntry(subjectId: 'claim-hidden-2', subjectType: 'claim', executionId: 'exec-visibility-3');
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-3');
+
+    $lastPage = app(CockpitJournalReader::class)->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'claim-1',
+            'type' => 'claim',
+        ],
+        'query' => [
+            'execution_id' => 'exec-visibility-3',
+            'subject_type' => 'claim',
+            'limit' => 2,
+            'offset' => 2,
+            'order' => 'asc',
+        ],
+    ]));
+
+    expect($lastPage->retrievedTotal)->toBe(5)
+        ->and($lastPage->visibleTotal)->toBe(1)
+        ->and($lastPage->hasMore)->toBeFalse()
+        ->and($lastPage->entries->pluck('subject')->map(fn (array $subject) => $subject['id'])->all())->toBe([
+            'claim-1',
+        ]);
+});
+
+it('documents cockpit pagination semantics in read metadata', function () {
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-metadata');
+    cockpitJournalEntry(subjectId: 'claim-hidden-1', subjectType: 'claim', executionId: 'exec-visibility-metadata');
+    cockpitJournalEntry(subjectId: 'claim-1', subjectType: 'claim', executionId: 'exec-visibility-metadata');
+
+    $view = app(CockpitJournalReader::class)->read(CockpitJournalQueryData::fromArray([
+        'actor' => [
+            'id' => 'claim-1',
+            'type' => 'claim',
+        ],
+        'query' => [
+            'execution_id' => 'exec-visibility-metadata',
+            'subject_type' => 'claim',
+            'limit' => 2,
+            'order' => 'asc',
+        ],
+        'metadata' => [
+            'request_id' => 'cockpit-pagination-contract',
+        ],
+    ]));
+
+    expect($view->retrievedTotal)->toBe(3)
+        ->and($view->visibleTotal)->toBe(2)
+        ->and($view->hasMore)->toBeFalse()
+        ->and($view->metadata)->toMatchArray([
+            'source' => 'cockpit',
+            'integration' => 'cockpit.journal',
+            'request_id' => 'cockpit-pagination-contract',
+            'pagination' => [
+                'limit_semantics' => 'visible_entries',
+                'offset_semantics' => 'visible_entries',
+                'visible_total_semantics' => 'page_visible_count',
+                'retrieved_total_semantics' => 'raw_matching_entries',
+                'has_more_semantics' => 'more_visible_entries',
+            ],
+        ])
+        ->and($view->toArray()['metadata']['pagination']['limit_semantics'])->toBe('visible_entries');
 });
 
 it('supports visibility profiles and redacts cockpit entry payloads for summary views', function () {
