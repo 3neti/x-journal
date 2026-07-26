@@ -2,11 +2,12 @@
 
 namespace LBHurtado\XJournal\Services;
 
+use Carbon\CarbonImmutable;
+use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
-use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Exceptions\JournalEntryIdempotencyConflictException;
-use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
+use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 
 class ExecutionJournalRecorder
 {
@@ -19,6 +20,9 @@ class ExecutionJournalRecorder
 
     public function record(ExecutionJournalEntryData $entry): ExecutionJournalEntry
     {
+        $entry = $entry->withOccurredAt(
+            CarbonImmutable::instance($entry->occurredAt)->startOfSecond(),
+        );
         $entry = $entry->withIdempotencyKey(
             $this->idempotencyKeyResolver->resolve($entry->idempotencyKey, $entry)
         );

@@ -51,6 +51,20 @@ it('verifies a clean journal hash chain', function () {
         ->and($verification->issues)->toBe([]);
 });
 
+it('normalizes sub-second occurrence precision before hashing and persistence', function () {
+    $entryData = verificationJournalEntryData()->withOccurredAt(
+        CarbonImmutable::parse(
+            '2026-06-29T10:15:00.123456Z',
+        ),
+    );
+    $recorder = app(ExecutionJournalRecorder::class);
+    $entry = $recorder->record($entryData);
+
+    expect($entry->occurred_at->format('u'))->toBe('000000')
+        ->and(app(JournalIntegrityVerifier::class)->verify()->verified)
+        ->toBeTrue();
+});
+
 it('detects canonical payload tampering', function () {
     $entry = app(ExecutionJournalRecorder::class)->record(verificationJournalEntryData());
 

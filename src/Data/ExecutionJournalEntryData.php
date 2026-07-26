@@ -63,6 +63,23 @@ final class ExecutionJournalEntryData extends Data
         );
     }
 
+    public function withOccurredAt(CarbonInterface $occurredAt): self
+    {
+        return new self(
+            eventType: $this->eventType,
+            occurredAt: $occurredAt,
+            actor: $this->actor,
+            subject: $this->subject,
+            references: $this->references,
+            idempotencyKey: $this->idempotencyKey,
+            payload: $this->payload,
+            money: $this->money,
+            integrity: $this->integrity,
+            metadata: $this->metadata,
+            referenceNumber: $this->referenceNumber,
+        );
+    }
+
     public function withIdempotencyKey(?string $idempotencyKey): self
     {
         return new self(
