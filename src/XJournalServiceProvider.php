@@ -2,57 +2,60 @@
 
 namespace LBHurtado\XJournal;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\ServiceProvider;
+use LBHurtado\XJournal\Console\Commands\VerifyJournalCommand;
+use LBHurtado\XJournal\Console\Commands\VerifySnapshotsCommand;
+use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
+use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
+use LBHurtado\XJournal\Contracts\JournalIntegrityVerificationMetadataContract;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
+use LBHurtado\XJournal\Contracts\JournalVerificationServiceContract;
+use LBHurtado\XJournal\Contracts\JournalVisibilityAccessReasonLoggerContract;
+use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
+use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
+use LBHurtado\XJournal\Renderers\MachineSupplementalArtifactRenderer;
+use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
+use LBHurtado\XJournal\Renderers\TextStatementArtifactRenderer;
+use LBHurtado\XJournal\Renderers\TextSupplementalArtifactRenderer;
 use LBHurtado\XJournal\Services\CampaignJournalRecorder;
+use LBHurtado\XJournal\Services\CockpitJournalEntryPresenter;
 use LBHurtado\XJournal\Services\CockpitJournalReader;
 use LBHurtado\XJournal\Services\DatabaseJournalSink;
-use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
+use LBHurtado\XJournal\Services\DefaultJournalIdempotencyKeyResolver;
+use LBHurtado\XJournal\Services\DefaultJournalIntegrityVerificationMetadataProvider;
+use LBHurtado\XJournal\Services\DefaultJournalVerificationService;
+use LBHurtado\XJournal\Services\DefaultJournalVisibilityProfileResolver;
 use LBHurtado\XJournal\Services\ExecutionJournalIdempotencyHasher;
+use LBHurtado\XJournal\Services\ExecutionJournalIntegrityHasher;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
-use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
-use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotReconciler;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotVerifier;
-use LBHurtado\XJournal\Services\JournalEntryRetriever;
 use LBHurtado\XJournal\Services\JournalArtifactGenerator;
+use LBHurtado\XJournal\Services\JournalEntryRetriever;
 use LBHurtado\XJournal\Services\JournalEventRecorder;
 use LBHurtado\XJournal\Services\JournalEventTransformerRegistry;
 use LBHurtado\XJournal\Services\JournalIntegrityVerifier;
 use LBHurtado\XJournal\Services\JournalSinkDispatcher;
-use LBHurtado\XJournal\Services\MonologJournalSink;
-use LBHurtado\XJournal\Services\CockpitJournalEntryPresenter;
-use LBHurtado\XJournal\Services\DefaultJournalIntegrityVerificationMetadataProvider;
-use LBHurtado\XJournal\Contracts\JournalVerificationServiceContract;
-use LBHurtado\XJournal\Services\DefaultJournalVerificationService;
-use LBHurtado\XJournal\Services\DefaultJournalIdempotencyKeyResolver;
-use LBHurtado\XJournal\Services\DefaultJournalVisibilityProfileResolver;
+use LBHurtado\XJournal\Services\JournalTimestampPrecisionLossDetector;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
+use LBHurtado\XJournal\Services\MonologJournalSink;
+use LBHurtado\XJournal\Services\NullJournalSink;
 use LBHurtado\XJournal\Services\NullJournalVisibilityAccessReasonLogger;
-use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
-use LBHurtado\XJournal\Contracts\JournalIntegrityVerificationMetadataContract;
-use LBHurtado\XJournal\Contracts\JournalVisibilityAccessReasonLoggerContract;
-use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
 use LBHurtado\XJournal\Services\OperatorActionJournalRecorder;
 use LBHurtado\XJournal\Services\ProviderCallbackJournalRecorder;
 use LBHurtado\XJournal\Services\ReconciliationJournalRecorder;
-use LBHurtado\XJournal\Services\NullJournalSink;
 use LBHurtado\XJournal\Services\XChangeExecutionJournalRecorder;
-use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
-use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
-use LBHurtado\XJournal\Renderers\TextSupplementalArtifactRenderer;
-use LBHurtado\XJournal\Renderers\MachineSupplementalArtifactRenderer;
-use LBHurtado\XJournal\Renderers\TextStatementArtifactRenderer;
 use LBHurtado\XJournal\Transformers\CampaignJournalTransformer;
 use LBHurtado\XJournal\Transformers\ClaimLifecycleJournalTransformer;
 use LBHurtado\XJournal\Transformers\ExecutionResultJournalTransformer;
 use LBHurtado\XJournal\Transformers\OperatorActionJournalTransformer;
 use LBHurtado\XJournal\Transformers\ProviderCallbackJournalTransformer;
 use LBHurtado\XJournal\Transformers\ReconciliationJournalTransformer;
-use Illuminate\Support\Arr;
 
 class XJournalServiceProvider extends ServiceProvider
 {
@@ -66,6 +69,7 @@ class XJournalServiceProvider extends ServiceProvider
         $this->app->singleton(ExecutionJournalIntegrityHasher::class);
         $this->app->singleton(ExecutionJournalIdempotencyHasher::class);
         $this->app->singleton(JournalIntegrityVerifier::class);
+        $this->app->singleton(JournalTimestampPrecisionLossDetector::class);
         $this->app->singleton(ExecutionReferenceNumberGenerator::class);
         $this->app->singleton(JournalEntryRetriever::class);
         $this->app->singleton(CockpitJournalReader::class);
@@ -139,8 +143,8 @@ class XJournalServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
-                \LBHurtado\XJournal\Console\Commands\VerifyJournalCommand::class,
-                \LBHurtado\XJournal\Console\Commands\VerifySnapshotsCommand::class,
+                VerifyJournalCommand::class,
+                VerifySnapshotsCommand::class,
             ]);
         }
 

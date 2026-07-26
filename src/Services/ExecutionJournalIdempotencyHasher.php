@@ -8,6 +8,12 @@ class ExecutionJournalIdempotencyHasher
 {
     public function fingerprint(ExecutionJournalEntryData $entry): string
     {
+        return hash('sha256', $this->canonicalJson($entry));
+    }
+
+    public function canonicalJson(
+        ExecutionJournalEntryData $entry,
+    ): string {
         $canonical = [
             'event_type' => $entry->eventType,
             'occurred_at' => $entry->occurredAt->toJSON(),
@@ -19,7 +25,10 @@ class ExecutionJournalIdempotencyHasher
             'metadata' => $entry->metadata,
         ];
 
-        return hash('sha256', json_encode($this->normalize($canonical), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        return json_encode(
+            $this->normalize($canonical),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+        );
     }
 
     /**

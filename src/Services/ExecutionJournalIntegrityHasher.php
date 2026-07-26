@@ -31,6 +31,16 @@ class ExecutionJournalIntegrityHasher
      */
     public function hash(ExecutionJournalEntryData $entry, array $integrity): string
     {
+        return hash('sha256', $this->canonicalJson($entry, $integrity));
+    }
+
+    /**
+     * @param  array<string, mixed>  $integrity
+     */
+    public function canonicalJson(
+        ExecutionJournalEntryData $entry,
+        array $integrity,
+    ): string {
         $canonical = [
             'reference_number' => $entry->referenceNumber,
             'event_type' => $entry->eventType,
@@ -44,6 +54,9 @@ class ExecutionJournalIntegrityHasher
             'previous_hash' => $integrity['previous_hash'] ?? null,
         ];
 
-        return hash('sha256', json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        return json_encode(
+            $canonical,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 namespace LBHurtado\XJournal\Services;
 
+use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Data\ExecutionIntegrityData;
@@ -17,6 +18,10 @@ class DatabaseJournalSink implements JournalSinkContract
 
     public function record(ExecutionJournalEntryData $entry): ExecutionJournalEntry
     {
+        $entry = $entry->withOccurredAt(
+            CarbonImmutable::instance($entry->occurredAt)->startOfSecond(),
+        );
+
         if ($entry->referenceNumber === null) {
             throw new InvalidArgumentException('Journal entries must have a reference number before persistence.');
         }
