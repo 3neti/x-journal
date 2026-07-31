@@ -5,11 +5,9 @@ It stores durable business execution evidence without executing workflows, movin
 
 The package is internal-first: it is usable independently of `3neti/x-change` at the package level while remaining consumable by host applications as their evidentiary boundary.
 
-For architectural context and Wave 2A planning status, see:
+For architectural context and production-readiness boundaries, see:
 
-- [X Journal Compass](/docs/architecture/x-journal/X_JOURNAL_COMPASS.md)
-- [Production Readiness](/docs/architecture/x-journal/PRODUCTION_READINESS.md)
-- [Production Deferrals ADR](/docs/architecture/x-journal/ADR-0001-production-deferrals.md)
+- [Package architecture](docs/x-journal-architecture.md)
 
 For package-specific completion status against functional-spec slices, see the "V1 Completion Compass" section in the package architecture document.
 
@@ -41,6 +39,21 @@ php artisan migrate
 ```
 
 The service provider is Laravel auto-discovered (`LBHurtado\XJournal\XJournalServiceProvider`), so no manual registration is required.
+
+## Compatibility
+
+- PHP 8.3 or 8.4
+- Laravel 12 or 13
+- Pest 3 or 4 for package development
+
+## Quality gates
+
+```bash
+composer validate --strict
+vendor/bin/pint --test
+composer test
+composer audit
+```
 
 ## Configuration
 
