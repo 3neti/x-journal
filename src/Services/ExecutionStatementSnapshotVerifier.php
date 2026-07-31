@@ -18,7 +18,7 @@ class ExecutionStatementSnapshotVerifier
 
     public function verifyAll(?ExecutionStatementSnapshotQueryData $query = null): ExecutionStatementSnapshotVerificationData
     {
-        $query ??= new ExecutionStatementSnapshotQueryData();
+        $query ??= new ExecutionStatementSnapshotQueryData;
         $snapshots = $this->orderedQueryForVerification($query)->get();
 
         $issues = [];

@@ -3,12 +3,13 @@
 use Carbon\CarbonImmutable;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Contracts\JournalVerificationServiceContract;
+use LBHurtado\XJournal\Data\CockpitJournalQueryData;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
-use LBHurtado\XJournal\Data\JournalEventData;
 use LBHurtado\XJournal\Data\JournalAccessActorData;
+use LBHurtado\XJournal\Data\JournalEventData;
 use LBHurtado\XJournal\Data\JournalRetrievalQueryData;
 use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
 use LBHurtado\XJournal\Exceptions\JournalEntryImmutableException;
@@ -131,7 +132,7 @@ it('characterizes cockpit visibility filtering as post-retrieval windowing', fun
         subjectType: 'claim',
     ));
 
-    $view = app(CockpitJournalReader::class)->read(new LBHurtado\XJournal\Data\CockpitJournalQueryData(
+    $view = app(CockpitJournalReader::class)->read(new CockpitJournalQueryData(
         actor: JournalAccessActorData::fromArray([
             'id' => 'operator-1',
             'type' => 'operator',

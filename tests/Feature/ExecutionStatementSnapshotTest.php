@@ -1,20 +1,20 @@
 <?php
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionMoneyData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
-use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Data\ExecutionStatementSnapshotQueryData;
+use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Models\ExecutionStatementSnapshot;
-use Illuminate\Support\Facades\DB;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotHasher;
-use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotReconciler;
+use LBHurtado\XJournal\Services\ExecutionStatementSnapshotRetriever;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotVerifier;
 
 function statementJournalEntryData(

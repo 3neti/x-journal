@@ -11,4 +11,3 @@ it('registers the package service provider in the test application', function ()
     expect(app()->getLoadedProviders())
         ->toHaveKey(XJournalServiceProvider::class);
 });
-

@@ -31,14 +31,14 @@ class JournalVisibilityGate
             $decision = $policy->decide($entry, $actor);
 
             if ($decision->allowed) {
-                ($this->accessReasonLogger ?? new NullJournalVisibilityAccessReasonLogger())->log($entry, $actor, $decision);
+                ($this->accessReasonLogger ?? new NullJournalVisibilityAccessReasonLogger)->log($entry, $actor, $decision);
 
                 return $decision;
             }
         }
 
         $decision = JournalAccessDecisionData::deny('no-policy-allowed-access');
-        ($this->accessReasonLogger ?? new NullJournalVisibilityAccessReasonLogger())->log($entry, $actor, $decision);
+        ($this->accessReasonLogger ?? new NullJournalVisibilityAccessReasonLogger)->log($entry, $actor, $decision);
 
         return $decision;
     }

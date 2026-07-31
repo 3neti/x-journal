@@ -1,8 +1,8 @@
 <?php
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
@@ -12,7 +12,7 @@ use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 function verificationCommandEntryData(string $referenceNumber = 'ERM-000000001'): ExecutionJournalEntryData
 {
     static $counter = 0;
-    ++$counter;
+    $counter++;
 
     return new ExecutionJournalEntryData(
         eventType: 'execution.result.recorded',

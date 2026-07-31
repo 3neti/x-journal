@@ -1,8 +1,8 @@
 <?php
 
 use Carbon\CarbonImmutable;
-use LBHurtado\XJournal\Contracts\JournalVisibilityPolicyContract;
 use LBHurtado\XJournal\Contracts\JournalVisibilityAccessReasonLoggerContract;
+use LBHurtado\XJournal\Contracts\JournalVisibilityPolicyContract;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
@@ -10,9 +10,9 @@ use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Data\JournalAccessActorData;
 use LBHurtado\XJournal\Data\JournalAccessDecisionData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
-use LBHurtado\XJournal\Policies\ActorOrSubjectJournalVisibilityPolicy;
 
 function visibleJournalEntry(): ExecutionJournalEntry
 {
@@ -117,8 +117,8 @@ it('allows package consumers to add visibility policies', function () {
         public function decide(ExecutionJournalEntry $entry, JournalAccessActorData $actor): JournalAccessDecisionData
         {
             return $actor->can('custom.audit')
-                ? JournalAccessDecisionData::allow('permission:custom.audit', static::class)
-                : JournalAccessDecisionData::deny('missing-custom-audit', static::class);
+                ? JournalAccessDecisionData::allow('permission:custom.audit', self::class)
+                : JournalAccessDecisionData::deny('missing-custom-audit', self::class);
         }
     });
 
@@ -135,9 +135,7 @@ it('records visibility decisions through a configurable access reason logger', f
     $calls = [];
     $logger = new class($calls) implements JournalVisibilityAccessReasonLoggerContract
     {
-        public function __construct(public array &$calls)
-        {
-        }
+        public function __construct(public array &$calls) {}
 
         public function log(ExecutionJournalEntry $entry, JournalAccessActorData $actor, JournalAccessDecisionData $decision): void
         {

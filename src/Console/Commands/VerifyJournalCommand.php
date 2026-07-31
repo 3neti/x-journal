@@ -58,6 +58,7 @@ class VerifyJournalCommand extends Command
         $issueCount = count($verification->issues);
         if ($issueCount === 0) {
             $this->info('No issues found.');
+
             return;
         }
 

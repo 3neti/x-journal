@@ -1,17 +1,17 @@
 <?php
 
-use LBHurtado\XJournal\Exceptions\JournalEntryIdempotencyConflictException;
-use LBHurtado\XJournal\Models\ExecutionJournalEntry;
-use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use Carbon\CarbonImmutable;
+use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
+use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionMoneyData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
-use LBHurtado\XJournal\Contracts\JournalIdempotencyKeyResolverContract;
-use LBHurtado\XJournal\Services\ExecutionJournalIdempotencyHasher;
-use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
+use LBHurtado\XJournal\Exceptions\JournalEntryIdempotencyConflictException;
+use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use LBHurtado\XJournal\Services\ExecutionJournalIdempotencyHasher;
+use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionReferenceNumberGenerator;
 
 function idempotentJournalEntryData(
@@ -72,7 +72,8 @@ it('uses explicit references consistently with existing idempotency keys', funct
 });
 
 it('supports scoped idempotency keys through a configurable resolver', function () {
-    $resolver = new class implements JournalIdempotencyKeyResolverContract {
+    $resolver = new class implements JournalIdempotencyKeyResolverContract
+    {
         public function resolve(?string $idempotencyKey, ExecutionJournalEntryData $entry): ?string
         {
             if ($idempotencyKey === null) {

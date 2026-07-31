@@ -2,6 +2,7 @@
 
 namespace LBHurtado\XJournal\Services;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use LBHurtado\XJournal\Data\ExecutionStatementSnapshotQueryData;
 use LBHurtado\XJournal\Data\ExecutionStatementSnapshotResultData;
@@ -81,8 +82,7 @@ class ExecutionStatementSnapshotRetriever
             ->when($query->subjectType, fn (Builder $builder, string $value): Builder => $builder->where('subject_type', $value))
             ->when($query->subjectId, fn (Builder $builder, string $value): Builder => $builder->where('subject_id', $value))
             ->when($query->statementNumber, fn (Builder $builder, string $value): Builder => $builder->where('statement_number', $value))
-            ->when($query->generatedAfter, fn (Builder $builder, \Carbon\CarbonInterface $value): Builder => $builder->where('generated_at', '>=', $value))
-            ->when($query->generatedBefore, fn (Builder $builder, \Carbon\CarbonInterface $value): Builder => $builder->where('generated_at', '<=', $value))
-            ;
+            ->when($query->generatedAfter, fn (Builder $builder, CarbonInterface $value): Builder => $builder->where('generated_at', '>=', $value))
+            ->when($query->generatedBefore, fn (Builder $builder, CarbonInterface $value): Builder => $builder->where('generated_at', '<=', $value));
     }
 }

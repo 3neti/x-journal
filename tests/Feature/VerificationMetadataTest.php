@@ -54,7 +54,7 @@ it('issues and validates scoped verification tokens', function () {
     expect($token)->not->toBeNull()
         ->and($service->validateToken($entry->reference_number, $token))->toBeTrue()
         ->and($service->validateToken($entry->reference_number, 'x-journal|000|bad'))
-            ->toBeFalse()
+        ->toBeFalse()
         ->and($service->validateToken('ERN-2026-000000999', $token))->toBeFalse();
 });
 
@@ -76,4 +76,3 @@ it('detects broken integrity when chain verification fails', function () {
         ->and($verification->status)->toBe('unverified')
         ->and($verification->levels)->not->toContain('journal_chain');
 });
-

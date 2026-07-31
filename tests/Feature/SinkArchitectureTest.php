@@ -1,5 +1,6 @@
 <?php
 
+use Carbon\CarbonImmutable;
 use LBHurtado\XJournal\Contracts\JournalSinkContract;
 use LBHurtado\XJournal\Contracts\SecondaryJournalSinkContract;
 use LBHurtado\XJournal\Data\ExecutionActorData;
@@ -8,12 +9,11 @@ use LBHurtado\XJournal\Data\ExecutionMoneyData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
+use LBHurtado\XJournal\Services\DatabaseJournalSink;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\JournalSinkDispatcher;
-use LBHurtado\XJournal\Services\DatabaseJournalSink;
 use LBHurtado\XJournal\Services\MonologJournalSink;
 use LBHurtado\XJournal\Services\NullJournalSink;
-use Carbon\CarbonImmutable;
 use Psr\Log\AbstractLogger;
 
 function sinkJournalEntryData(?string $referenceNumber = null): ExecutionJournalEntryData

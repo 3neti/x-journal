@@ -1,5 +1,6 @@
 <?php
 
+use LBHurtado\XJournal\Data\JournalRetrievalQueryData;
 use LBHurtado\XJournal\Data\XChangeExecutionOutcomeData;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Services\JournalEntryRetriever;
@@ -115,7 +116,7 @@ it('makes recorded execution outcomes retrievable by execution id', function () 
     app(XChangeExecutionJournalRecorder::class)->record(xChangeExecutionOutcome());
 
     $result = app(JournalEntryRetriever::class)->search(
-        LBHurtado\XJournal\Data\JournalRetrievalQueryData::fromArray([
+        JournalRetrievalQueryData::fromArray([
             'execution_id' => 'exec-1',
         ])
     );

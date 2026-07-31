@@ -4,7 +4,6 @@ namespace LBHurtado\XJournal\Data;
 
 use Carbon\CarbonInterface;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
-use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
 use Spatie\LaravelData\Data;
 
 final class CockpitJournalEntryData extends Data

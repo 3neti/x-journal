@@ -7,7 +7,9 @@ use Spatie\LaravelData\Data;
 final class JournalVisibilityProfileData extends Data
 {
     public const string PROFILE_RAW = 'raw';
+
     public const string PROFILE_SUMMARY = 'summary';
+
     public const string PROFILE_REDACTED = 'redacted';
 
     public function __construct(

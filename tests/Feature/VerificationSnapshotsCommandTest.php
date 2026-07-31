@@ -7,6 +7,7 @@ use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
+use LBHurtado\XJournal\Models\ExecutionStatementSnapshot;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\ExecutionStatementSnapshotGenerator;
 
@@ -87,7 +88,7 @@ it('returns JSON from snapshot verification command when requested', function ()
 it('returns non-zero when snapshot verification fails', function () {
     snapshotCommandSeedSnapshots();
 
-    $snapshot = \LBHurtado\XJournal\Models\ExecutionStatementSnapshot::query()->orderBy('id', 'desc')->firstOrFail();
+    $snapshot = ExecutionStatementSnapshot::query()->orderBy('id', 'desc')->firstOrFail();
     DB::table('execution_statement_snapshots')->where('id', $snapshot->id)->update(['hash' => 'tampered']);
 
     $this->artisan('x-journal:verify-snapshots', ['--subject-id' => $snapshot->subject_id])

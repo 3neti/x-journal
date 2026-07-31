@@ -116,10 +116,9 @@ it('records denied visibility decisions through the configured access reason log
     $entry = governedJournalEntry();
     $calls = [];
 
-    $logger = new class($calls) implements JournalVisibilityAccessReasonLoggerContract {
-        public function __construct(public array &$calls)
-        {
-        }
+    $logger = new class($calls) implements JournalVisibilityAccessReasonLoggerContract
+    {
+        public function __construct(public array &$calls) {}
 
         public function log(ExecutionJournalEntry $entry, JournalAccessActorData $actor, JournalAccessDecisionData $decision): void
         {

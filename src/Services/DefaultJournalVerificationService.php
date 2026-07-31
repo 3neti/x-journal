@@ -139,6 +139,7 @@ class DefaultJournalVerificationService implements JournalVerificationServiceCon
         }
 
         $result = $this->integrityVerifier->verify($history);
+
         return $result->verified;
     }
 

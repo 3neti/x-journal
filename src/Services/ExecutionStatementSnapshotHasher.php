@@ -81,10 +81,6 @@ class ExecutionStatementSnapshotHasher
         return $issues;
     }
 
-    /**
-     * @param  mixed  $a
-     * @param  mixed  $b
-     */
     protected function compareSnapshotsForVerification(mixed $a, mixed $b): int
     {
         if (! $a instanceof ExecutionStatementSnapshot || ! $b instanceof ExecutionStatementSnapshot) {
@@ -125,7 +121,6 @@ class ExecutionStatementSnapshotHasher
 
     /**
      * @param  array<string, mixed>  $value
-     * @param  bool  $preserveListOrder
      * @return array<string, mixed>
      */
     protected function normalize(array $value, bool $preserveListOrder = false): array
@@ -145,7 +140,6 @@ class ExecutionStatementSnapshotHasher
 
     /**
      * @param  array<string, mixed>  $value
-     * @param  bool  $preserveListOrder
      * @return array<string, mixed>
      */
     protected function normalizeNested(array $value, bool $preserveListOrder = false): array

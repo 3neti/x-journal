@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Collection;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use LBHurtado\XJournal\Contracts\JournalArtifactRendererContract;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
@@ -13,9 +13,9 @@ use LBHurtado\XJournal\Data\JournalArtifactProfileData;
 use LBHurtado\XJournal\Exceptions\JournalArtifactRendererNotFoundException;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Renderers\MachineSupplementalArtifactRenderer;
-use LBHurtado\XJournal\Renderers\TextSupplementalArtifactRenderer;
 use LBHurtado\XJournal\Renderers\TextReceiptArtifactRenderer;
 use LBHurtado\XJournal\Renderers\TextStatementArtifactRenderer;
+use LBHurtado\XJournal\Renderers\TextSupplementalArtifactRenderer;
 use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\JournalArtifactGenerator;
 
@@ -128,7 +128,7 @@ it('allows package consumers to register artifact renderers', function () {
                 format: 'application/json',
                 content: json_encode(['reference_number' => $entry?->reference_number], JSON_THROW_ON_ERROR),
                 referenceNumbers: [$entry?->reference_number],
-                metadata: ['renderer' => static::class],
+                metadata: ['renderer' => self::class],
             );
         }
     });

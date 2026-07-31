@@ -55,6 +55,7 @@ it('keeps composer metadata aligned with the documented release posture', functi
             'spatie/laravel-data' => '^4.0',
         ],
         'scripts' => [
+            'pint' => 'pint --test',
             'test' => 'php -d memory_limit=1G vendor/bin/pest',
             'test:coverage' => 'php -d memory_limit=1G vendor/bin/pest --coverage',
         ],

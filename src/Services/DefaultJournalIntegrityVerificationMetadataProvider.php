@@ -6,7 +6,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use LBHurtado\XJournal\Contracts\JournalIntegrityVerificationMetadataContract;
 use LBHurtado\XJournal\Data\JournalIntegrityIssueData;
-use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 
 class DefaultJournalIntegrityVerificationMetadataProvider implements JournalIntegrityVerificationMetadataContract
 {

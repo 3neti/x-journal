@@ -16,6 +16,7 @@ class ExecutionReferenceNumberGenerator
         $prefix = (string) config('x-journal.reference_number.prefix', 'ERN');
         $digits = (int) config('x-journal.reference_number.digits', 9);
         $year = $occurredAt->format('Y');
+
         return DB::transaction(function () use ($prefix, $year, $digits): string {
             $counter = ExecutionJournalReferenceCounter::query()
                 ->where('prefix', $prefix)

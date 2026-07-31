@@ -2,13 +2,11 @@
 
 namespace LBHurtado\XJournal\Services;
 
-use LBHurtado\XJournal\Data\CockpitJournalEntryData;
+use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
+use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
 use LBHurtado\XJournal\Data\CockpitJournalQueryData;
 use LBHurtado\XJournal\Data\CockpitJournalViewData;
 use LBHurtado\XJournal\Data\JournalRetrievalQueryData;
-use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
-use LBHurtado\XJournal\Models\ExecutionJournalEntry;
-use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
 
 class CockpitJournalReader
 {

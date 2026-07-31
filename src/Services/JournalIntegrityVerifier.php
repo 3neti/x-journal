@@ -3,10 +3,10 @@
 namespace LBHurtado\XJournal\Services;
 
 use Illuminate\Support\Collection;
+use LBHurtado\XJournal\Contracts\JournalIntegrityVerificationMetadataContract;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\JournalIntegrityIssueData;
 use LBHurtado\XJournal\Data\JournalIntegrityVerificationData;
-use LBHurtado\XJournal\Contracts\JournalIntegrityVerificationMetadataContract;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 
 class JournalIntegrityVerifier

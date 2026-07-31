@@ -1,20 +1,23 @@
 <?php
 
 use Carbon\CarbonImmutable;
-use LBHurtado\XJournal\Data\CockpitJournalQueryData;
+use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
 use LBHurtado\XJournal\Contracts\JournalVisibilityProfileResolverContract;
-use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
+use LBHurtado\XJournal\Data\CockpitJournalEntryData;
+use LBHurtado\XJournal\Data\CockpitJournalQueryData;
 use LBHurtado\XJournal\Data\ExecutionActorData;
 use LBHurtado\XJournal\Data\ExecutionJournalEntryData;
 use LBHurtado\XJournal\Data\ExecutionReferenceData;
 use LBHurtado\XJournal\Data\ExecutionSubjectData;
+use LBHurtado\XJournal\Data\JournalAccessActorData;
+use LBHurtado\XJournal\Data\JournalAccessDecisionData;
+use LBHurtado\XJournal\Data\JournalVisibilityProfileData;
 use LBHurtado\XJournal\Data\OperatorActionData;
-use LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract;
 use LBHurtado\XJournal\Models\ExecutionJournalEntry;
 use LBHurtado\XJournal\Services\CockpitJournalReader;
+use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\JournalEntryRetriever;
 use LBHurtado\XJournal\Services\JournalVisibilityGate;
-use LBHurtado\XJournal\Services\ExecutionJournalRecorder;
 use LBHurtado\XJournal\Services\OperatorActionJournalRecorder;
 
 function cockpitJournalEntry(
@@ -466,12 +469,12 @@ it('allows package consumers to override cockpit visibility presentation contrac
         new class implements JournalCockpitEntryPresentationContract
         {
             public function present(
-                \LBHurtado\XJournal\Models\ExecutionJournalEntry $entry,
-                \LBHurtado\XJournal\Data\JournalAccessActorData $actor,
-                \LBHurtado\XJournal\Data\JournalAccessDecisionData $decision,
+                ExecutionJournalEntry $entry,
+                JournalAccessActorData $actor,
+                JournalAccessDecisionData $decision,
                 JournalVisibilityProfileData $profile,
-            ): \LBHurtado\XJournal\Data\CockpitJournalEntryData {
-                return \LBHurtado\XJournal\Data\CockpitJournalEntryData::fromEntryWithProfile(
+            ): CockpitJournalEntryData {
+                return CockpitJournalEntryData::fromEntryWithProfile(
                     $entry,
                     $decision,
                     JournalVisibilityProfileData::fromArray(['name' => 'summary'])
@@ -504,15 +507,15 @@ it('resolves visibility profiles through a configurable profile resolver', funct
     $reader = new CockpitJournalReader(
         app(JournalEntryRetriever::class),
         app(JournalVisibilityGate::class),
-        new class implements LBHurtado\XJournal\Contracts\JournalCockpitEntryPresentationContract
+        new class implements JournalCockpitEntryPresentationContract
         {
             public function present(
-                \LBHurtado\XJournal\Models\ExecutionJournalEntry $entry,
-                \LBHurtado\XJournal\Data\JournalAccessActorData $actor,
-                \LBHurtado\XJournal\Data\JournalAccessDecisionData $decision,
+                ExecutionJournalEntry $entry,
+                JournalAccessActorData $actor,
+                JournalAccessDecisionData $decision,
                 JournalVisibilityProfileData $profile,
-            ): \LBHurtado\XJournal\Data\CockpitJournalEntryData {
-                return \LBHurtado\XJournal\Data\CockpitJournalEntryData::fromEntryWithProfile(
+            ): CockpitJournalEntryData {
+                return CockpitJournalEntryData::fromEntryWithProfile(
                     $entry,
                     $decision,
                     $profile,
@@ -522,9 +525,9 @@ it('resolves visibility profiles through a configurable profile resolver', funct
         new class implements JournalVisibilityProfileResolverContract
         {
             public function resolve(
-                \LBHurtado\XJournal\Models\ExecutionJournalEntry $entry,
-                \LBHurtado\XJournal\Data\JournalAccessActorData $actor,
-                \LBHurtado\XJournal\Data\JournalAccessDecisionData $decision,
+                ExecutionJournalEntry $entry,
+                JournalAccessActorData $actor,
+                JournalAccessDecisionData $decision,
                 JournalVisibilityProfileData $requestedProfile,
             ): JournalVisibilityProfileData {
                 if (in_array('finance', $actor->roles, true)) {
