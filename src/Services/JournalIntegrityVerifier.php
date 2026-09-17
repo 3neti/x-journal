@@ -103,6 +103,8 @@ class JournalIntegrityVerifier
             'payload' => $entry->payload,
             'integrity' => $entry->integrity,
             'metadata' => $entry->metadata,
+            'source_system' => $entry->source_system,
+            'source_event_id' => $entry->source_event_id,
         ]);
     }
 

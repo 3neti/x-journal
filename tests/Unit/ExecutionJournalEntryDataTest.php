@@ -129,5 +129,7 @@ it('normalizes journal entry data to the canonical shape', function () {
             'metadata' => [],
         ],
         'metadata' => ['source' => 'test'],
+        'source_system' => null,
+        'source_event_id' => null,
     ]);
 });

@@ -24,6 +24,8 @@ final class ExecutionJournalEntryData extends Data
         public ?ExecutionIntegrityData $integrity = null,
         public array $metadata = [],
         public ?string $referenceNumber = null,
+        public ?string $sourceSystem = null,
+        public ?string $sourceEventId = null,
     ) {}
 
     /**
@@ -43,6 +45,8 @@ final class ExecutionJournalEntryData extends Data
             integrity: ExecutionIntegrityData::fromArray(self::arrayValue($data['integrity'] ?? [])),
             metadata: self::arrayValue($data['metadata'] ?? []),
             referenceNumber: self::nullableString($data['reference_number'] ?? null),
+            sourceSystem: self::nullableString($data['source_system'] ?? null),
+            sourceEventId: self::nullableString($data['source_event_id'] ?? null),
         );
     }
 
@@ -60,6 +64,8 @@ final class ExecutionJournalEntryData extends Data
             integrity: $this->integrity,
             metadata: $this->metadata,
             referenceNumber: $referenceNumber,
+            sourceSystem: $this->sourceSystem,
+            sourceEventId: $this->sourceEventId,
         );
     }
 
@@ -77,6 +83,8 @@ final class ExecutionJournalEntryData extends Data
             integrity: $this->integrity,
             metadata: $this->metadata,
             referenceNumber: $this->referenceNumber,
+            sourceSystem: $this->sourceSystem,
+            sourceEventId: $this->sourceEventId,
         );
     }
 
@@ -94,6 +102,8 @@ final class ExecutionJournalEntryData extends Data
             integrity: $this->integrity,
             metadata: $this->metadata,
             referenceNumber: $this->referenceNumber,
+            sourceSystem: $this->sourceSystem,
+            sourceEventId: $this->sourceEventId,
         );
     }
 
@@ -110,6 +120,8 @@ final class ExecutionJournalEntryData extends Data
      *     payload: array<string, mixed>,
      *     integrity: array<string, mixed>,
      *     metadata: array<string, mixed>
+     *     source_system: ?string,
+     *     source_event_id: ?string
      * }
      */
     public function toArray(): array
@@ -126,6 +138,8 @@ final class ExecutionJournalEntryData extends Data
             'payload' => $this->payload,
             'integrity' => ($this->integrity ?? new ExecutionIntegrityData)->toArray(),
             'metadata' => $this->metadata,
+            'source_system' => $this->sourceSystem,
+            'source_event_id' => $this->sourceEventId,
         ];
     }
 

@@ -54,6 +54,13 @@ class ExecutionJournalIntegrityHasher
             'previous_hash' => $integrity['previous_hash'] ?? null,
         ];
 
+        if ($entry->sourceSystem !== null || $entry->sourceEventId !== null) {
+            $canonical['source'] = [
+                'system' => $entry->sourceSystem,
+                'event_id' => $entry->sourceEventId,
+            ];
+        }
+
         return json_encode(
             $canonical,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,

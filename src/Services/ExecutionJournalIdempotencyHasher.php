@@ -25,6 +25,13 @@ class ExecutionJournalIdempotencyHasher
             'metadata' => $entry->metadata,
         ];
 
+        if ($entry->sourceSystem !== null || $entry->sourceEventId !== null) {
+            $canonical['source'] = [
+                'system' => $entry->sourceSystem,
+                'event_id' => $entry->sourceEventId,
+            ];
+        }
+
         return json_encode(
             $this->normalize($canonical),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,

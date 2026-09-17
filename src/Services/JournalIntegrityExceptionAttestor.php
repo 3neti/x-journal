@@ -81,6 +81,7 @@ final readonly class JournalIntegrityExceptionAttestor
                     $context['entry'],
                     $locked,
                 );
+                $this->rebaseHeadToLatestStoredHash();
                 $context['attestation'] = $this->record(
                     $locked,
                     $context['issue_codes'],
@@ -257,6 +258,23 @@ final readonly class JournalIntegrityExceptionAttestor
                 'The journal entry changed after inspection.',
             );
         }
+    }
+
+    private function rebaseHeadToLatestStoredHash(): void
+    {
+        $latestIntegrity = ExecutionJournalEntry::query()
+            ->orderByDesc('id')
+            ->value('integrity');
+
+        DB::table('execution_journal_heads')
+            ->where('id', 1)
+            ->lockForUpdate()
+            ->update([
+                'current_hash' => is_array($latestIntegrity)
+                    ? ($latestIntegrity['hash'] ?? null)
+                    : null,
+                'updated_at' => now(),
+            ]);
     }
 
     private function idempotencyKey(
